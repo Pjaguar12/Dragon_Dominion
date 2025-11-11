@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragon Dominion - Expand Your Territory!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #ffa500;
+        }
+
+        .stats-panel {
+            background: rgba(0, 0, 0, 0.5);
+            border: 3px solid #ffd700;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffd700;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #ffa500;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .game-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #ffa500;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .section h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #ffa500;
+            padding-bottom: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+            border: none;
+            color: #1a1a1a;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #ffed4e 0%, #ffb733 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .minion-list {
+            margin-top: 15px;
+        }
+
+        .minion-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #ffa500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .minion-info {
+            flex: 1;
+        }
+
+        .minion-name {
+            font-weight: bold;
+            color: #ffd700;
+            font-size: 1.1em;
+        }
+
+        .minion-status {
+            font-size: 0.9em;
+            color: #ccc;
+            margin-top: 4px;
+        }
+
+        .minion-action {
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        .log-section {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #ffa500;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .log-section h2 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #ffa500;
+            padding-bottom: 10px;
+        }
+
+        .game-log {
+            height: 150px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px;
+            border-left: 3px solid #ffa500;
+            padding-left: 8px;
+        }
+
+        .log-entry.treasure {
+            border-left-color: #ffd700;
+            color: #ffd700;
+        }
+
+        .log-entry.territory {
+            border-left-color: #7e22ce;
+            color: #b794f6;
+        }
+
+        .log-entry.minion {
+            border-left-color: #22c55e;
+            color: #86efac;
+        }
+
+        @media (max-width: 768px) {
+            .game-sections {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+
+        .cost-info {
+            font-size: 0.85em;
+            color: #ffa500;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🐉 Dragon Dominion 🐉</h1>
+        <p class="subtitle">Expand your hoard and command your minions!</p>
+
+        <div class="stats-panel">
+            <div class="stat-item">
+                <div class="stat-label">💰 Treasure</div>
+                <div class="stat-value" id="treasure">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">🏰 Territory</div>
+                <div class="stat-value" id="territory">1</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">👥 Minions</div>
+                <div class="stat-value" id="minion-count">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">⚡ Power</div>
+                <div class="stat-value" id="power">10</div>
+            </div>
+        </div>
+
+        <div class="game-sections">
+            <div class="section">
+                <h2>🔥 Dragon Actions</h2>
+                <div class="button-group">
+                    <button onclick="game.collectTreasure()">
+                        Hoard Treasure
+                        <div class="cost-info">+10 Gold per raid</div>
+                    </button>
+                    <button onclick="game.expandTerritory()" id="expand-btn">
+                        Expand Territory
+                        <div class="cost-info">Cost: <span id="territory-cost">50</span> Gold</div>
+                    </button>
+                    <button onclick="game.increasePower()" id="power-btn">
+                        Train Dragon Powers
+                        <div class="cost-info">Cost: <span id="power-cost">30</span> Gold</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>👥 Minion Management</h2>
+                <div class="button-group">
+                    <button onclick="game.recruitMinion()" id="recruit-btn">
+                        Recruit Minion
+                        <div class="cost-info">Cost: <span id="recruit-cost">20</span> Gold</div>
+                    </button>
+                </div>
+                <div class="minion-list" id="minion-list">
+                    <p style="color: #aaa; font-style: italic;">No minions yet. Recruit your first servant!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-section">
+            <h2>📜 Dragon's Chronicle</h2>
+            <div class="game-log" id="game-log">
+                <div class="log-entry">Welcome, mighty dragon! Begin building your empire...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const game = {
+            treasure: 0,
+            territory: 1,
+            minions: [],
+            power: 10,
+            minionIdCounter: 0,
+
+            // Costs
+            getCost(type) {
+                switch(type) {
+                    case 'territory':
+                        return 50 * this.territory;
+                    case 'minion':
+                        return 20 + (this.minions.length * 10);
+                    case 'power':
+                        return 30 * Math.floor(this.power / 10);
+                    default:
+                        return 0;
+                }
+            },
+
+            collectTreasure() {
+                const amount = 10 + (this.power * 0.5);
+                this.treasure += amount;
+                this.log(`Raided a village and collected ${Math.floor(amount)} gold!`, 'treasure');
+                this.updateDisplay();
+            },
+
+            expandTerritory() {
+                const cost = this.getCost('territory');
+                if (this.treasure >= cost) {
+                    this.treasure -= cost;
+                    this.territory++;
+                    this.log(`Conquered new territory! Now ruling ${this.territory} regions.`, 'territory');
+                    this.updateDisplay();
+                } else {
+                    this.log(`Need ${cost - this.treasure} more gold to expand territory.`);
+                }
+            },
+
+            increasePower() {
+                const cost = this.getCost('power');
+                if (this.treasure >= cost) {
+                    this.treasure -= cost;
+                    this.power += 5;
+                    this.log(`Trained your dragon powers! Power increased to ${this.power}.`, 'treasure');
+                    this.updateDisplay();
+                } else {
+                    this.log(`Need ${cost - this.treasure} more gold to train.`);
+                }
+            },
+
+            recruitMinion() {
+                const cost = this.getCost('minion');
+                if (this.treasure >= cost) {
+                    this.treasure -= cost;
+                    const minionTypes = ['Goblin', 'Orc', 'Troll', 'Dark Elf', 'Kobold', 'Imp'];
+                    const type = minionTypes[Math.floor(Math.random() * minionTypes.length)];
+                    const minion = {
+                        id: this.minionIdCounter++,
+                        type: type,
+                        status: 'idle',
+                        collectRate: 2 + Math.floor(Math.random() * 3)
+                    };
+                    this.minions.push(minion);
+                    this.log(`Recruited a ${type} minion to serve you!`, 'minion');
+                    this.updateDisplay();
+                } else {
+                    this.log(`Need ${cost - this.treasure} more gold to recruit a minion.`);
+                }
+            },
+
+            sendMinionOnMission(minionId) {
+                const minion = this.minions.find(m => m.id === minionId);
+                if (minion && minion.status === 'idle') {
+                    minion.status = 'on mission';
+                    this.log(`${minion.type} sent on treasure mission!`, 'minion');
+                    this.updateDisplay();
+
+                    // Mission takes 3 seconds
+                    setTimeout(() => {
+                        if (this.minions.find(m => m.id === minionId)) {
+                            const treasureFound = minion.collectRate + Math.floor(Math.random() * 5);
+                            this.treasure += treasureFound;
+                            minion.status = 'idle';
+                            this.log(`${minion.type} returned with ${treasureFound} gold!`, 'treasure');
+                            this.updateDisplay();
+                        }
+                    }, 3000);
+                }
+            },
+
+            log(message, type = '') {
+                const logEl = document.getElementById('game-log');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                const timestamp = new Date().toLocaleTimeString();
+                entry.textContent = `[${timestamp}] ${message}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+            },
+
+            updateDisplay() {
+                // Update stats
+                document.getElementById('treasure').textContent = Math.floor(this.treasure);
+                document.getElementById('territory').textContent = this.territory;
+                document.getElementById('minion-count').textContent = this.minions.length;
+                document.getElementById('power').textContent = this.power;
+
+                // Update costs
+                document.getElementById('territory-cost').textContent = this.getCost('territory');
+                document.getElementById('recruit-cost').textContent = this.getCost('minion');
+                document.getElementById('power-cost').textContent = this.getCost('power');
+
+                // Update buttons
+                document.getElementById('expand-btn').disabled = this.treasure < this.getCost('territory');
+                document.getElementById('recruit-btn').disabled = this.treasure < this.getCost('minion');
+                document.getElementById('power-btn').disabled = this.treasure < this.getCost('power');
+
+                // Update minion list
+                const minionList = document.getElementById('minion-list');
+                if (this.minions.length === 0) {
+                    minionList.innerHTML = '<p style="color: #aaa; font-style: italic;">No minions yet. Recruit your first servant!</p>';
+                } else {
+                    minionList.innerHTML = this.minions.map(minion => `
+                        <div class="minion-item">
+                            <div class="minion-info">
+                                <div class="minion-name">${minion.type}</div>
+                                <div class="minion-status">Status: ${minion.status} | Collection: +${minion.collectRate} gold</div>
+                            </div>
+                            <button class="minion-action" 
+                                    onclick="game.sendMinionOnMission(${minion.id})"
+                                    ${minion.status !== 'idle' ? 'disabled' : ''}>
+                                ${minion.status === 'idle' ? 'Send Mission' : 'Busy...'}
+                            </button>
+                        </div>
+                    `).join('');
+                }
+            }
+        };
+
+        // Initialize game
+        game.updateDisplay();
+        game.log('Your reign of terror begins! Collect treasure and expand your domain!');
+    </script>
+</body>
+</html>
