@@ -137,7 +137,7 @@
                 <ul>
                     <li><strong>Arrow Keys:</strong> Move your dragon</li>
                     <li><strong>F Key:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
-                    <li><strong>Shift:</strong> Breathe fire (destroys obstacles, damages knights)</li>
+                    <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>Spacebar:</strong> Order minions to collect gold</li>
                     <li><strong>Objective:</strong> Collect 1,000,000 gold and expand territory to 100 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
@@ -158,7 +158,7 @@
             </div>
             <canvas id="canvas" width="1200" height="800"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
-                Press SPACEBAR to order minions • Press F to fly • Press SHIFT to breathe fire • Attack towns for treasure!
+                Press SPACEBAR to order minions • Press F to fly • Press B to breathe fire • Attack towns for treasure!
             </div>
         </div>
 
@@ -647,38 +647,8 @@
 
         function updateMinions() {
             for (let minion of gameState.minionWorkers) {
-                if (minion.targetCoin) {
-                    const dx = minion.targetCoin.x - minion.x;
-                    const dy = minion.targetCoin.y - minion.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 5) {
-                        // Collect coin
-                        const index = gameState.coins.indexOf(minion.targetCoin);
-                        if (index > -1) {
-                            gameState.gold += minion.targetCoin.value;
-                            gameState.territory += 1;
-                            gameState.coins.splice(index, 1);
-                            playCoinSound();
-                        }
-                        minion.targetCoin = null;
-                        minion.returning = true;
-                    } else {
-                        minion.x += (dx / distance) * 3;
-                        minion.y += (dy / distance) * 3;
-                    }
-                } else if (minion.returning) {
-                    const dx = gameState.dragon.x - minion.x;
-                    const dy = gameState.dragon.y - minion.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 20) {
-                        minion.returning = false;
-                    } else {
-                        minion.x += (dx / distance) * 3;
-                        minion.y += (dy / distance) * 3;
-                    }
-                } else {
+                // Minions move independently without player orders
+                if (!minion.targetCoin && !minion.returning) {
                     // Find nearest coin
                     let nearest = null;
                     let nearestDist = Infinity;
@@ -696,6 +666,72 @@
 
                     if (nearest) {
                         minion.targetCoin = nearest;
+                    }
+                }
+                
+                if (minion.targetCoin) {
+                    const dx = minion.targetCoin.x - minion.x;
+                    const dy = minion.targetCoin.y - minion.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 5) {
+                        // Collect coin
+                        const index = gameState.coins.indexOf(minion.targetCoin);
+                        if (index > -1) {
+                            gameState.gold += minion.targetCoin.value;
+                            gameState.territory += 1;
+                            gameState.coins.splice(index, 1);
+                            playCoinSound();
+                        }
+                        minion.targetCoin = null;
+                        minion.returning = true;
+                    } else {
+                        // Calculate new position
+                        let newX = minion.x + (dx / distance) * 3;
+                        let newY = minion.y + (dy / distance) * 3;
+                        
+                        // Check obstacle collision
+                        let collided = false;
+                        for (let obs of gameState.obstacles) {
+                            if (checkCollision({x: newX, y: newY, size: 8}, obs, 0)) {
+                                collided = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!collided) {
+                            minion.x = newX;
+                            minion.y = newY;
+                        } else {
+                            // Try to move around obstacle
+                            minion.targetCoin = null;
+                        }
+                    }
+                } else if (minion.returning) {
+                    const dx = gameState.dragon.x - minion.x;
+                    const dy = gameState.dragon.y - minion.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 20) {
+                        minion.returning = false;
+                    } else {
+                        // Calculate new position
+                        let newX = minion.x + (dx / distance) * 3;
+                        let newY = minion.y + (dy / distance) * 3;
+                        
+                        // Check obstacle collision
+                        let collided = false;
+                        for (let obs of gameState.obstacles) {
+                            if (checkCollision({x: newX, y: newY, size: 8}, obs, 0)) {
+                                collided = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!collided) {
+                            minion.x = newX;
+                            minion.y = newY;
+                        }
                     }
                 }
             }
@@ -843,6 +879,11 @@
             if (gameState.running) {
                 gameState.keys[e.key] = true;
                 
+                // Prevent scrolling with arrow keys
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                }
+                
                 if (e.key === ' ') {
                     e.preventDefault();
                     orderMinions();
@@ -854,7 +895,7 @@
                     playFlySound();
                 }
                 
-                if (e.key === 'Shift') {
+                if (e.key === 'b' || e.key === 'B') {
                     e.preventDefault();
                     breathFire();
                 }
@@ -870,3 +911,4 @@
     </script>
 </body>
 </html>
+ 
