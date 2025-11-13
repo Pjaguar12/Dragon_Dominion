@@ -136,10 +136,11 @@
                 <h3>📜 How to Play:</h3>
                 <ul>
                     <li><strong>Arrow Keys:</strong> Move your dragon</li>
+                    <li><strong>F Key:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
+                    <li><strong>Shift:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>Spacebar:</strong> Order minions to collect gold</li>
                     <li><strong>Objective:</strong> Collect 1,000,000 gold and expand territory to 100 acres</li>
-                    <li><strong>Collect:</strong> Gold coins to increase wealth and territory</li>
-                    <li><strong>Avoid:</strong> Knights (they damage you!), Trees, and Rocks</li>
+                    <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
                     <li><strong>Health:</strong> Start with 100 HP, lose 20 HP per knight hit</li>
                 </ul>
@@ -155,9 +156,9 @@
                 <span class="stat-item"><span class="stat-label">Health:</span> <span id="healthDisplay">100</span> HP</span>
                 <span class="stat-item"><span class="stat-label">Minions:</span> <span id="minionDisplay">0</span></span>
             </div>
-            <canvas id="canvas" width="800" height="600"></canvas>
+            <canvas id="canvas" width="1200" height="800"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
-                Press SPACEBAR to order minions • Collect gold to unlock minions!
+                Press SPACEBAR to order minions • Press F to fly • Press SHIFT to breathe fire • Attack towns for treasure!
             </div>
         </div>
 
@@ -223,18 +224,34 @@
             setTimeout(() => playSound(784, 0.4), 300);
         }
 
+        function playFireSound() {
+            playSound(150, 0.3, 'sawtooth');
+            setTimeout(() => playSound(120, 0.2, 'sawtooth'), 100);
+        }
+
+        function playFlySound() {
+            playSound(400, 0.1);
+        }
+
+        function playTownSound() {
+            playSound(300, 0.2);
+            setTimeout(() => playSound(250, 0.2), 100);
+        }
+
         // Game State
         let gameState = {
             gold: 0,
             territory: 0,
             health: 100,
             minions: 0,
-            dragon: { x: 100, y: 100, size: 30, speed: 4 },
+            dragon: { x: 100, y: 100, size: 30, speed: 4, flying: false },
             keys: {},
             coins: [],
             knights: [],
             obstacles: [],
             minionWorkers: [],
+            towns: [],
+            fireBreaths: [],
             running: false,
             frame: 0
         };
@@ -245,20 +262,33 @@
             gameState.territory = 0;
             gameState.health = 100;
             gameState.minions = 0;
-            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4 };
+            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4, flying: false };
             gameState.coins = [];
             gameState.knights = [];
             gameState.obstacles = [];
             gameState.minionWorkers = [];
+            gameState.towns = [];
+            gameState.fireBreaths = [];
             gameState.frame = 0;
 
-            // Generate initial obstacles
-            for (let i = 0; i < 15; i++) {
+            // Generate initial obstacles (more for bigger world)
+            for (let i = 0; i < 30; i++) {
                 gameState.obstacles.push({
                     x: Math.random() * (canvas.width - 40) + 20,
                     y: Math.random() * (canvas.height - 40) + 20,
                     size: 25,
                     type: Math.random() > 0.5 ? 'tree' : 'rock'
+                });
+            }
+
+            // Generate towns
+            for (let i = 0; i < 5; i++) {
+                gameState.towns.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: Math.random() * (canvas.height - 100) + 50,
+                    size: 40,
+                    treasure: Math.floor(Math.random() * 5000) + 2000,
+                    health: 100
                 });
             }
 
@@ -342,46 +372,57 @@
         function drawDragon() {
             const d = gameState.dragon;
             
+            // Shadow if flying
+            if (d.flying) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(d.x, d.y + 20, d.size * 0.6, d.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            const yOffset = d.flying ? -15 : 0;
+            
             // Body
-            ctx.fillStyle = '#2d5016';
+            ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.beginPath();
-            ctx.ellipse(d.x, d.y, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(d.x, d.y + yOffset, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
             ctx.fill();
 
             // Head
-            ctx.fillStyle = '#3a6b1f';
+            ctx.fillStyle = d.flying ? '#4a8b2f' : '#3a6b1f';
             ctx.beginPath();
-            ctx.arc(d.x + d.size * 0.5, d.y, d.size * 0.5, 0, Math.PI * 2);
+            ctx.arc(d.x + d.size * 0.5, d.y + yOffset, d.size * 0.5, 0, Math.PI * 2);
             ctx.fill();
 
             // Eyes
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(d.x + d.size * 0.6, d.y - 5, 4, 0, Math.PI * 2);
+            ctx.arc(d.x + d.size * 0.6, d.y - 5 + yOffset, 4, 0, Math.PI * 2);
             ctx.fill();
 
             // Wings
-            ctx.fillStyle = '#2d5016';
+            const wingSpread = d.flying ? 1.5 : 1.2;
+            ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.3, d.y);
-            ctx.lineTo(d.x - d.size * 1.2, d.y - d.size * 0.5);
-            ctx.lineTo(d.x - d.size * 0.5, d.y + d.size * 0.3);
+            ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
+            ctx.lineTo(d.x - d.size * wingSpread, d.y - d.size * 0.5 + yOffset);
+            ctx.lineTo(d.x - d.size * 0.5, d.y + d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
 
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.3, d.y);
-            ctx.lineTo(d.x - d.size * 1.2, d.y + d.size * 0.5);
-            ctx.lineTo(d.x - d.size * 0.5, d.y - d.size * 0.3);
+            ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
+            ctx.lineTo(d.x - d.size * wingSpread, d.y + d.size * 0.5 + yOffset);
+            ctx.lineTo(d.x - d.size * 0.5, d.y - d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
 
             // Tail
-            ctx.strokeStyle = '#2d5016';
+            ctx.strokeStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.lineWidth = 8;
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.8, d.y);
-            ctx.quadraticCurveTo(d.x - d.size * 1.5, d.y + d.size * 0.5, d.x - d.size * 1.8, d.y);
+            ctx.moveTo(d.x - d.size * 0.8, d.y + yOffset);
+            ctx.quadraticCurveTo(d.x - d.size * 1.5, d.y + d.size * 0.5 + yOffset, d.x - d.size * 1.8, d.y + yOffset);
             ctx.stroke();
         }
 
@@ -459,6 +500,56 @@
             ctx.fillText('M', minion.x, minion.y + 3);
         }
 
+        function drawTown(town) {
+            // Buildings
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(town.x - town.size/2, town.y - town.size/2, town.size * 0.4, town.size * 0.6);
+            ctx.fillRect(town.x, town.y - town.size/2, town.size * 0.4, town.size * 0.5);
+            
+            // Roofs
+            ctx.fillStyle = '#a0522d';
+            ctx.beginPath();
+            ctx.moveTo(town.x - town.size/2 - 5, town.y - town.size/2);
+            ctx.lineTo(town.x - town.size * 0.1, town.y - town.size * 0.8);
+            ctx.lineTo(town.x - town.size * 0.1, town.y - town.size/2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(town.x, town.y - town.size/2);
+            ctx.lineTo(town.x + town.size * 0.2, town.y - town.size * 0.7);
+            ctx.lineTo(town.x + town.size * 0.4, town.y - town.size/2);
+            ctx.fill();
+            
+            // Castle flag
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(town.x + town.size * 0.15, town.y - town.size * 0.7, 2, 10);
+            ctx.fillRect(town.x + town.size * 0.15, town.y - town.size * 0.7, 8, 5);
+            
+            // Health bar
+            ctx.fillStyle = '#000';
+            ctx.fillRect(town.x - town.size/2, town.y + town.size/2 + 5, town.size, 5);
+            ctx.fillStyle = town.health > 50 ? '#0f0' : town.health > 25 ? '#ff0' : '#f00';
+            ctx.fillRect(town.x - town.size/2, town.y + town.size/2 + 5, town.size * (town.health / 100), 5);
+        }
+
+        function drawFireBreath(fire) {
+            ctx.save();
+            ctx.globalAlpha = fire.alpha;
+            
+            const gradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, fire.size);
+            gradient.addColorStop(0, '#ffff00');
+            gradient.addColorStop(0.4, '#ff8800');
+            gradient.addColorStop(0.7, '#ff0000');
+            gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(fire.x, fire.y, fire.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
         // Game logic
         function checkCollision(obj1, obj2, buffer = 0) {
             const dx = obj1.x - obj2.x;
@@ -481,12 +572,14 @@
             newX = Math.max(d.size, Math.min(canvas.width - d.size, newX));
             newY = Math.max(d.size, Math.min(canvas.height - d.size, newY));
 
-            // Check obstacle collision
+            // Check obstacle collision only if not flying
             let collided = false;
-            for (let obs of gameState.obstacles) {
-                if (checkCollision({x: newX, y: newY, size: d.size}, obs, 0)) {
-                    collided = true;
-                    break;
+            if (!d.flying) {
+                for (let obs of gameState.obstacles) {
+                    if (checkCollision({x: newX, y: newY, size: d.size}, obs, 0)) {
+                        collided = true;
+                        break;
+                    }
                 }
             }
 
@@ -495,30 +588,34 @@
                 d.y = newY;
             }
 
-            // Check coin collection
-            for (let i = gameState.coins.length - 1; i >= 0; i--) {
-                if (checkCollision(d, gameState.coins[i], 0)) {
-                    gameState.gold += gameState.coins[i].value;
-                    gameState.territory += 1;
-                    gameState.coins.splice(i, 1);
-                    playCoinSound();
+            // Check coin collection (only when not flying)
+            if (!d.flying) {
+                for (let i = gameState.coins.length - 1; i >= 0; i--) {
+                    if (checkCollision(d, gameState.coins[i], 0)) {
+                        gameState.gold += gameState.coins[i].value;
+                        gameState.territory += 1;
+                        gameState.coins.splice(i, 1);
+                        playCoinSound();
 
-                    // Unlock minions
-                    if (gameState.gold >= 1000 && gameState.minions < 3) {
-                        gameState.minions = Math.min(3, Math.floor(gameState.gold / 1000));
+                        // Unlock minions
+                        if (gameState.gold >= 1000 && gameState.minions < 3) {
+                            gameState.minions = Math.min(3, Math.floor(gameState.gold / 1000));
+                        }
                     }
                 }
             }
 
-            // Check knight collision
-            for (let i = gameState.knights.length - 1; i >= 0; i--) {
-                if (checkCollision(d, gameState.knights[i], 0)) {
-                    gameState.health -= gameState.knights[i].damage;
-                    gameState.knights.splice(i, 1);
-                    playHitSound();
+            // Check knight collision (only when not flying)
+            if (!d.flying) {
+                for (let i = gameState.knights.length - 1; i >= 0; i--) {
+                    if (checkCollision(d, gameState.knights[i], 0)) {
+                        gameState.health -= gameState.knights[i].damage;
+                        gameState.knights.splice(i, 1);
+                        playHitSound();
 
-                    if (gameState.health <= 0) {
-                        gameOver();
+                        if (gameState.health <= 0) {
+                            gameOver();
+                        }
                     }
                 }
             }
@@ -604,6 +701,72 @@
             }
         }
 
+        function updateFireBreath() {
+            for (let i = gameState.fireBreaths.length - 1; i >= 0; i--) {
+                const fire = gameState.fireBreaths[i];
+                
+                fire.x += fire.vx;
+                fire.y += fire.vy;
+                fire.life--;
+                fire.alpha = fire.life / 30;
+                
+                // Check collision with knights
+                for (let j = gameState.knights.length - 1; j >= 0; j--) {
+                    if (checkCollision(fire, gameState.knights[j], 0)) {
+                        gameState.knights.splice(j, 1);
+                        playHitSound();
+                    }
+                }
+                
+                // Check collision with obstacles
+                for (let j = gameState.obstacles.length - 1; j >= 0; j--) {
+                    if (checkCollision(fire, gameState.obstacles[j], 0)) {
+                        gameState.obstacles.splice(j, 1);
+                        playHitSound();
+                    }
+                }
+                
+                // Check collision with towns
+                for (let town of gameState.towns) {
+                    if (checkCollision(fire, town, 0)) {
+                        town.health -= 10;
+                        if (town.health <= 0 && town.health > -5) {
+                            // Town destroyed, gain treasure
+                            gameState.gold += town.treasure;
+                            gameState.territory += 10;
+                            playTownSound();
+                            // Spawn knights when town is attacked
+                            spawnKnight();
+                            spawnKnight();
+                        }
+                    }
+                }
+                
+                // Remove fire if out of bounds or life expired
+                if (fire.life <= 0 || fire.x < 0 || fire.x > canvas.width || fire.y < 0 || fire.y > canvas.height) {
+                    gameState.fireBreaths.splice(i, 1);
+                }
+            }
+        }
+
+        function breathFire() {
+            const d = gameState.dragon;
+            const angle = 0; // Fire to the right
+            const speed = 8;
+            
+            gameState.fireBreaths.push({
+                x: d.x + d.size,
+                y: d.y,
+                vx: speed,
+                vy: 0,
+                size: 20,
+                life: 30,
+                alpha: 1
+            });
+            
+            playFireSound();
+        }
+
         function orderMinions() {
             if (gameState.minions > 0 && gameState.minionWorkers.length < gameState.minions) {
                 gameState.minionWorkers.push({
@@ -640,11 +803,6 @@
             // Spawn coins periodically
             if (gameState.frame % 180 === 0) {
                 spawnCoins(2);
-            }
-
-            // Spawn knights periodically (increasing difficulty)
-            if (gameState.frame % 300 === 0) {
-                spawnKnight();
             }
 
             // Draw everything
@@ -688,6 +846,17 @@
                 if (e.key === ' ') {
                     e.preventDefault();
                     orderMinions();
+                }
+                
+                if (e.key === 'f' || e.key === 'F') {
+                    e.preventDefault();
+                    gameState.dragon.flying = !gameState.dragon.flying;
+                    playFlySound();
+                }
+                
+                if (e.key === 'Shift') {
+                    e.preventDefault();
+                    breathFire();
                 }
             }
         });
