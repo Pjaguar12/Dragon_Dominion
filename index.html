@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragon Dominion</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        #gameContainer {
+            text-align: center;
+            max-width: 900px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            color: #ffd700;
+        }
+
+        #canvas {
+            border: 4px solid #ffd700;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8C8 50%, #2d5016 100%);
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .screen {
+            display: none;
+            padding: 20px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 15px;
+            margin: 20px auto;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        button {
+            background: linear-gradient(to bottom, #ffd700, #ffed4e);
+            color: #1e3c72;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            margin: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        #stats {
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 10px auto;
+            font-size: 1.1em;
+        }
+
+        .stat-item {
+            margin: 5px 15px;
+            display: inline-block;
+        }
+
+        .stat-label {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .instructions {
+            background: rgba(0,0,0,0.6);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+            line-height: 1.8;
+        }
+
+        .instructions h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+        }
+
+        .emoji {
+            font-size: 5em;
+            margin: 20px;
+        }
+
+        #highScore {
+            color: #ffd700;
+            font-size: 1.3em;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>🐉 Dragon Dominion 🐉</h1>
+        
+        <div id="startScreen" class="screen active">
+            <div class="instructions">
+                <h3>📜 How to Play:</h3>
+                <ul>
+                    <li><strong>Arrow Keys:</strong> Move your dragon</li>
+                    <li><strong>Spacebar:</strong> Order minions to collect gold</li>
+                    <li><strong>Objective:</strong> Collect 1,000,000 gold and expand territory to 100 acres</li>
+                    <li><strong>Collect:</strong> Gold coins to increase wealth and territory</li>
+                    <li><strong>Avoid:</strong> Knights (they damage you!), Trees, and Rocks</li>
+                    <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
+                    <li><strong>Health:</strong> Start with 100 HP, lose 20 HP per knight hit</li>
+                </ul>
+            </div>
+            <div id="highScore">High Score: 0 gold</div>
+            <button onclick="startGame()">Start Adventure</button>
+        </div>
+
+        <div id="gameScreen" class="screen">
+            <div id="stats">
+                <span class="stat-item"><span class="stat-label">Gold:</span> <span id="goldDisplay">0</span></span>
+                <span class="stat-item"><span class="stat-label">Territory:</span> <span id="territoryDisplay">0</span> acres</span>
+                <span class="stat-item"><span class="stat-label">Health:</span> <span id="healthDisplay">100</span> HP</span>
+                <span class="stat-item"><span class="stat-label">Minions:</span> <span id="minionDisplay">0</span></span>
+            </div>
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
+                Press SPACEBAR to order minions • Collect gold to unlock minions!
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="screen">
+            <div class="emoji">💀</div>
+            <h2>Your Dragon Has Fallen!</h2>
+            <p style="font-size: 1.3em; margin: 20px 0;">Knights have defeated your dragon...</p>
+            <div id="finalStats" style="font-size: 1.2em; margin: 20px 0;"></div>
+            <button onclick="restartGame()">Try Again</button>
+            <button onclick="backToMenu()">Main Menu</button>
+        </div>
+
+        <div id="winScreen" class="screen">
+            <div class="emoji">🐉</div>
+            <h2>Victory! Dragon Dominion Achieved!</h2>
+            <p style="font-size: 1.3em; margin: 20px 0;">You have conquered the realm!</p>
+            <div id="winStats" style="font-size: 1.2em; margin: 20px 0;"></div>
+            <button onclick="restartGame()">Play Again</button>
+            <button onclick="backToMenu()">Main Menu</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Audio Context for sound effects
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, duration, type = 'sine') {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function playCoinSound() {
+            playSound(800, 0.1);
+            setTimeout(() => playSound(1000, 0.1), 50);
+        }
+
+        function playHitSound() {
+            playSound(200, 0.3, 'sawtooth');
+        }
+
+        function playMinionSound() {
+            playSound(600, 0.15);
+        }
+
+        function playWinSound() {
+            playSound(523, 0.2);
+            setTimeout(() => playSound(659, 0.2), 150);
+            setTimeout(() => playSound(784, 0.4), 300);
+        }
+
+        // Game State
+        let gameState = {
+            gold: 0,
+            territory: 0,
+            health: 100,
+            minions: 0,
+            dragon: { x: 100, y: 100, size: 30, speed: 4 },
+            keys: {},
+            coins: [],
+            knights: [],
+            obstacles: [],
+            minionWorkers: [],
+            running: false,
+            frame: 0
+        };
+
+        // Initialize game
+        function initGame() {
+            gameState.gold = 0;
+            gameState.territory = 0;
+            gameState.health = 100;
+            gameState.minions = 0;
+            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4 };
+            gameState.coins = [];
+            gameState.knights = [];
+            gameState.obstacles = [];
+            gameState.minionWorkers = [];
+            gameState.frame = 0;
+
+            // Generate initial obstacles
+            for (let i = 0; i < 15; i++) {
+                gameState.obstacles.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: Math.random() * (canvas.height - 40) + 20,
+                    size: 25,
+                    type: Math.random() > 0.5 ? 'tree' : 'rock'
+                });
+            }
+
+            // Generate initial coins
+            spawnCoins(5);
+        }
+
+        function spawnCoins(count) {
+            for (let i = 0; i < count; i++) {
+                gameState.coins.push({
+                    x: Math.random() * (canvas.width - 30) + 15,
+                    y: Math.random() * (canvas.height - 30) + 15,
+                    size: 15,
+                    value: Math.floor(Math.random() * 50) + 10
+                });
+            }
+        }
+
+        function spawnKnight() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            
+            switch(side) {
+                case 0: x = Math.random() * canvas.width; y = -20; break;
+                case 1: x = canvas.width + 20; y = Math.random() * canvas.height; break;
+                case 2: x = Math.random() * canvas.width; y = canvas.height + 20; break;
+                case 3: x = -20; y = Math.random() * canvas.height; break;
+            }
+
+            gameState.knights.push({
+                x: x,
+                y: y,
+                size: 20,
+                speed: 1.5,
+                damage: 20
+            });
+        }
+
+        function startGame() {
+            showScreen('gameScreen');
+            initGame();
+            gameState.running = true;
+            gameLoop();
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function backToMenu() {
+            showScreen('startScreen');
+            updateHighScore();
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function updateStats() {
+            document.getElementById('goldDisplay').textContent = gameState.gold.toLocaleString();
+            document.getElementById('territoryDisplay').textContent = gameState.territory;
+            document.getElementById('healthDisplay').textContent = gameState.health;
+            document.getElementById('minionDisplay').textContent = gameState.minions;
+        }
+
+        function updateHighScore() {
+            const highScore = localStorage.getItem('dragonDominionHighScore') || 0;
+            document.getElementById('highScore').textContent = `High Score: ${parseInt(highScore).toLocaleString()} gold`;
+        }
+
+        function saveHighScore() {
+            const highScore = localStorage.getItem('dragonDominionHighScore') || 0;
+            if (gameState.gold > parseInt(highScore)) {
+                localStorage.setItem('dragonDominionHighScore', gameState.gold);
+                updateHighScore();
+            }
+        }
+
+        // Drawing functions
+        function drawDragon() {
+            const d = gameState.dragon;
+            
+            // Body
+            ctx.fillStyle = '#2d5016';
+            ctx.beginPath();
+            ctx.ellipse(d.x, d.y, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#3a6b1f';
+            ctx.beginPath();
+            ctx.arc(d.x + d.size * 0.5, d.y, d.size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(d.x + d.size * 0.6, d.y - 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wings
+            ctx.fillStyle = '#2d5016';
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.size * 0.3, d.y);
+            ctx.lineTo(d.x - d.size * 1.2, d.y - d.size * 0.5);
+            ctx.lineTo(d.x - d.size * 0.5, d.y + d.size * 0.3);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.size * 0.3, d.y);
+            ctx.lineTo(d.x - d.size * 1.2, d.y + d.size * 0.5);
+            ctx.lineTo(d.x - d.size * 0.5, d.y - d.size * 0.3);
+            ctx.closePath();
+            ctx.fill();
+
+            // Tail
+            ctx.strokeStyle = '#2d5016';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.size * 0.8, d.y);
+            ctx.quadraticCurveTo(d.x - d.size * 1.5, d.y + d.size * 0.5, d.x - d.size * 1.8, d.y);
+            ctx.stroke();
+        }
+
+        function drawCoin(coin) {
+            ctx.fillStyle = '#ffd700';
+            ctx.strokeStyle = '#daa520';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(coin.x, coin.y, coin.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#daa520';
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('$', coin.x, coin.y + 4);
+        }
+
+        function drawKnight(knight) {
+            // Body
+            ctx.fillStyle = '#708090';
+            ctx.fillRect(knight.x - knight.size/2, knight.y - knight.size/2, knight.size, knight.size * 1.2);
+
+            // Helmet
+            ctx.fillStyle = '#505050';
+            ctx.beginPath();
+            ctx.arc(knight.x, knight.y - knight.size/2, knight.size/2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Sword
+            ctx.strokeStyle = '#c0c0c0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(knight.x + knight.size/2, knight.y);
+            ctx.lineTo(knight.x + knight.size, knight.y - knight.size/2);
+            ctx.stroke();
+
+            // Sword handle
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(knight.x + knight.size/2 - 2, knight.y - 2, 10, 4);
+        }
+
+        function drawObstacle(obs) {
+            if (obs.type === 'tree') {
+                // Tree trunk
+                ctx.fillStyle = '#8b4513';
+                ctx.fillRect(obs.x - 5, obs.y, 10, obs.size);
+
+                // Tree foliage
+                ctx.fillStyle = '#228b22';
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y - 5, obs.size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Rock
+                ctx.fillStyle = '#808080';
+                ctx.strokeStyle = '#696969';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y + obs.size/2, obs.size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        function drawMinion(minion) {
+            ctx.fillStyle = '#8b0000';
+            ctx.beginPath();
+            ctx.arc(minion.x, minion.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 8px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('M', minion.x, minion.y + 3);
+        }
+
+        // Game logic
+        function checkCollision(obj1, obj2, buffer = 0) {
+            const dx = obj1.x - obj2.x;
+            const dy = obj1.y - obj2.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < (obj1.size + obj2.size) / 2 + buffer;
+        }
+
+        function updateDragon() {
+            const d = gameState.dragon;
+            let newX = d.x;
+            let newY = d.y;
+
+            if (gameState.keys['ArrowLeft']) newX -= d.speed;
+            if (gameState.keys['ArrowRight']) newX += d.speed;
+            if (gameState.keys['ArrowUp']) newY -= d.speed;
+            if (gameState.keys['ArrowDown']) newY += d.speed;
+
+            // Keep dragon in bounds
+            newX = Math.max(d.size, Math.min(canvas.width - d.size, newX));
+            newY = Math.max(d.size, Math.min(canvas.height - d.size, newY));
+
+            // Check obstacle collision
+            let collided = false;
+            for (let obs of gameState.obstacles) {
+                if (checkCollision({x: newX, y: newY, size: d.size}, obs, 0)) {
+                    collided = true;
+                    break;
+                }
+            }
+
+            if (!collided) {
+                d.x = newX;
+                d.y = newY;
+            }
+
+            // Check coin collection
+            for (let i = gameState.coins.length - 1; i >= 0; i--) {
+                if (checkCollision(d, gameState.coins[i], 0)) {
+                    gameState.gold += gameState.coins[i].value;
+                    gameState.territory += 1;
+                    gameState.coins.splice(i, 1);
+                    playCoinSound();
+
+                    // Unlock minions
+                    if (gameState.gold >= 1000 && gameState.minions < 3) {
+                        gameState.minions = Math.min(3, Math.floor(gameState.gold / 1000));
+                    }
+                }
+            }
+
+            // Check knight collision
+            for (let i = gameState.knights.length - 1; i >= 0; i--) {
+                if (checkCollision(d, gameState.knights[i], 0)) {
+                    gameState.health -= gameState.knights[i].damage;
+                    gameState.knights.splice(i, 1);
+                    playHitSound();
+
+                    if (gameState.health <= 0) {
+                        gameOver();
+                    }
+                }
+            }
+
+            // Check win condition
+            if (gameState.gold >= 1000000 && gameState.territory >= 100) {
+                winGame();
+            }
+        }
+
+        function updateKnights() {
+            for (let knight of gameState.knights) {
+                const dx = gameState.dragon.x - knight.x;
+                const dy = gameState.dragon.y - knight.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 0) {
+                    knight.x += (dx / distance) * knight.speed;
+                    knight.y += (dy / distance) * knight.speed;
+                }
+            }
+
+            // Remove knights that are off screen
+            gameState.knights = gameState.knights.filter(k => 
+                k.x > -50 && k.x < canvas.width + 50 && 
+                k.y > -50 && k.y < canvas.height + 50
+            );
+        }
+
+        function updateMinions() {
+            for (let minion of gameState.minionWorkers) {
+                if (minion.targetCoin) {
+                    const dx = minion.targetCoin.x - minion.x;
+                    const dy = minion.targetCoin.y - minion.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 5) {
+                        // Collect coin
+                        const index = gameState.coins.indexOf(minion.targetCoin);
+                        if (index > -1) {
+                            gameState.gold += minion.targetCoin.value;
+                            gameState.territory += 1;
+                            gameState.coins.splice(index, 1);
+                            playCoinSound();
+                        }
+                        minion.targetCoin = null;
+                        minion.returning = true;
+                    } else {
+                        minion.x += (dx / distance) * 3;
+                        minion.y += (dy / distance) * 3;
+                    }
+                } else if (minion.returning) {
+                    const dx = gameState.dragon.x - minion.x;
+                    const dy = gameState.dragon.y - minion.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 20) {
+                        minion.returning = false;
+                    } else {
+                        minion.x += (dx / distance) * 3;
+                        minion.y += (dy / distance) * 3;
+                    }
+                } else {
+                    // Find nearest coin
+                    let nearest = null;
+                    let nearestDist = Infinity;
+
+                    for (let coin of gameState.coins) {
+                        const dx = coin.x - minion.x;
+                        const dy = coin.y - minion.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < nearestDist) {
+                            nearest = coin;
+                            nearestDist = dist;
+                        }
+                    }
+
+                    if (nearest) {
+                        minion.targetCoin = nearest;
+                    }
+                }
+            }
+        }
+
+        function orderMinions() {
+            if (gameState.minions > 0 && gameState.minionWorkers.length < gameState.minions) {
+                gameState.minionWorkers.push({
+                    x: gameState.dragon.x,
+                    y: gameState.dragon.y,
+                    targetCoin: null,
+                    returning: false
+                });
+                playMinionSound();
+            }
+        }
+
+        function gameLoop() {
+            if (!gameState.running) return;
+
+            gameState.frame++;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.5, '#98D8C8');
+            gradient.addColorStop(1, '#2d5016');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Update game
+            updateDragon();
+            updateKnights();
+            updateMinions();
+
+            // Spawn coins periodically
+            if (gameState.frame % 180 === 0) {
+                spawnCoins(2);
+            }
+
+            // Spawn knights periodically (increasing difficulty)
+            if (gameState.frame % 300 === 0) {
+                spawnKnight();
+            }
+
+            // Draw everything
+            gameState.obstacles.forEach(drawObstacle);
+            gameState.coins.forEach(drawCoin);
+            gameState.knights.forEach(drawKnight);
+            gameState.minionWorkers.forEach(drawMinion);
+            drawDragon();
+
+            updateStats();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState.running = false;
+            saveHighScore();
+            document.getElementById('finalStats').innerHTML = `
+                <p>Gold Collected: ${gameState.gold.toLocaleString()}</p>
+                <p>Territory: ${gameState.territory} acres</p>
+            `;
+            showScreen('gameOverScreen');
+        }
+
+        function winGame() {
+            gameState.running = false;
+            saveHighScore();
+            playWinSound();
+            document.getElementById('winStats').innerHTML = `
+                <p>🎉 Gold Collected: ${gameState.gold.toLocaleString()} 🎉</p>
+                <p>🏆 Territory: ${gameState.territory} acres 🏆</p>
+            `;
+            showScreen('winScreen');
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (gameState.running) {
+                gameState.keys[e.key] = true;
+                
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    orderMinions();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            gameState.keys[e.key] = false;
+        });
+
+        // Initialize high score display
+        updateHighScore();
+    </script>
+</body>
+</html>
