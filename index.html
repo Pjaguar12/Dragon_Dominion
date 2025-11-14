@@ -190,7 +190,7 @@
                     <li><strong>Spacebar:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
                     <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>M Key:</strong> Order minions to collect gold</li>
-                    <li><strong>Objective:</strong> Collect 1,000,000 gold and expand territory to 100 acres</li>
+                    <li><strong>Objective:</strong> Collect 50,000 gold and expand territory to 100 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
                     <li><strong>Health:</strong> Start with 100 HP, lose 20 HP per knight hit</li>
@@ -524,6 +524,88 @@
                     speed: 1.5,
                     damage: 20
                 });
+            }
+        }
+
+        function spawnNewTowns(count) {
+            for (let i = 0; i < count; i++) {
+                let townX, townY, validTown;
+                let attempts = 0;
+                do {
+                    townX = Math.random() * (gameState.worldWidth - 200) + 100;
+                    townY = Math.random() * (gameState.worldHeight - 200) + 100;
+                    const distFromLair = Math.sqrt(
+                        Math.pow(townX - gameState.lair.x, 2) + 
+                        Math.pow(townY - gameState.lair.y, 2)
+                    );
+                    validTown = distFromLair > 300;
+                    
+                    // Check distance from existing towns
+                    for (let town of gameState.towns) {
+                        const distFromTown = Math.sqrt(
+                            Math.pow(townX - town.x, 2) + 
+                            Math.pow(townY - town.y, 2)
+                        );
+                        if (distFromTown < 200) {
+                            validTown = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                } while (!validTown && attempts < 50);
+                
+                if (validTown) {
+                    gameState.towns.push({
+                        x: townX,
+                        y: townY,
+                        size: 40,
+                        treasure: Math.floor(Math.random() * 5000) + 2000,
+                        health: 100
+                    });
+                }
+            }
+        }
+
+        function spawnNewTrees(count) {
+            for (let i = 0; i < count; i++) {
+                let attempts = 0;
+                let validPosition = false;
+                let newTree;
+                
+                while (!validPosition && attempts < 50) {
+                    newTree = {
+                        x: Math.random() * (gameState.worldWidth - 60) + 30,
+                        y: Math.random() * (gameState.worldHeight - 60) + 30,
+                        size: 25,
+                        type: 'tree'
+                    };
+                    
+                    validPosition = true;
+                    // Check distance from lair
+                    const distFromLair = Math.sqrt(
+                        Math.pow(newTree.x - gameState.lair.x, 2) + 
+                        Math.pow(newTree.y - gameState.lair.y, 2)
+                    );
+                    if (distFromLair < gameState.lair.radius + 50) {
+                        validPosition = false;
+                    }
+                    
+                    // Check distance from other obstacles
+                    for (let obs of gameState.obstacles) {
+                        const dx = newTree.x - obs.x;
+                        const dy = newTree.y - obs.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < 60) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+                
+                if (validPosition) {
+                    gameState.obstacles.push(newTree);
+                }
             }
         }
 
@@ -966,7 +1048,7 @@
             }
 
             // Check win condition
-            if (gameState.gold >= 1000000 && gameState.territory >= 100) {
+            if (gameState.gold >= 50000 && gameState.territory >= 100) {
                 winGame();
             }
         }
@@ -1193,6 +1275,12 @@
             // Spawn knight every minute (60 frames per second * 60 seconds = 3600 frames)
             if (gameState.frame % 3600 === 0 && gameState.frame > 0) {
                 spawnKnight();
+            }
+
+            // Spawn 2 new towns and 3 new trees every 5 minutes (60 * 60 * 5 = 18000 frames)
+            if (gameState.frame % 18000 === 0 && gameState.frame > 0) {
+                spawnNewTowns(2);
+                spawnNewTrees(3);
             }
 
             // Draw everything
