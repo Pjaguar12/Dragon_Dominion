@@ -190,6 +190,7 @@
                     <li><strong>Spacebar:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
                     <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>M Key:</strong> Order minions to collect gold</li>
+                    <li><strong>N Key:</strong> Buy a minion for 50 gold</li>
                     <li><strong>Objective:</strong> Collect 50,000 gold and expand territory to 100 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
@@ -216,7 +217,7 @@
             </div>
             <canvas id="canvas" width="800" height="600"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
-                Press SPACEBAR to toggle flight • Press M to order minions • Press B to breathe fire • Attack towns for treasure!
+                Press SPACEBAR to toggle flight • Press M to order minions • Press N to buy minion (50 gold) • Press B to breathe fire
             </div>
         </div>
 
@@ -820,7 +821,9 @@
             // Only draw if in view
             if (screenX < -50 || screenX > canvas.width + 50 || screenY < -50 || screenY > canvas.height + 50) return;
             
-            // Body
+            ctx.save();
+            
+            // Body (armor)
             ctx.fillStyle = '#708090';
             ctx.fillRect(screenX - knight.size/2, screenY - knight.size/2, knight.size, knight.size * 1.2);
 
@@ -841,6 +844,8 @@
             // Sword handle
             ctx.fillStyle = '#8b4513';
             ctx.fillRect(screenX + knight.size/2 - 2, screenY - 2, 10, 4);
+            
+            ctx.restore();
         }
 
         function drawObstacle(obs) {
@@ -938,9 +943,8 @@
             ctx.save();
             ctx.globalAlpha = fire.alpha;
             
-            // Animated flickering effect
-            const flicker = Math.random() * 0.3 + 0.7;
-            const currentSize = fire.size * flicker;
+            // Use consistent size without flickering for stable appearance
+            const currentSize = fire.size;
             
             // Outer glow
             const outerGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, currentSize * 1.5);
@@ -966,18 +970,6 @@
             ctx.beginPath();
             ctx.arc(screenX, screenY, currentSize, 0, Math.PI * 2);
             ctx.fill();
-            
-            // Spark particles
-            for (let i = 0; i < 3; i++) {
-                const sparkX = screenX + (Math.random() - 0.5) * currentSize;
-                const sparkY = screenY + (Math.random() - 0.5) * currentSize;
-                const sparkSize = Math.random() * 3 + 1;
-                
-                ctx.fillStyle = '#ffff00';
-                ctx.beginPath();
-                ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
-                ctx.fill();
-            }
             
             ctx.restore();
         }
@@ -1257,14 +1249,25 @@
 
         function orderMinions() {
             if (gameState.minions > 0 && gameState.minionWorkers.length < gameState.minions) {
-                // Spawn minions from lair
+                // Spawn minions from lair with spread positioning
+                const angle = (gameState.minionWorkers.length / gameState.minions) * Math.PI * 2;
+                const spreadRadius = gameState.lair.radius * 0.5;
+                
                 gameState.minionWorkers.push({
-                    x: gameState.lair.x,
-                    y: gameState.lair.y,
+                    x: gameState.lair.x + Math.cos(angle) * spreadRadius,
+                    y: gameState.lair.y + Math.sin(angle) * spreadRadius,
                     targetCoin: null,
                     returning: false
                 });
                 playMinionSound();
+            }
+        }
+
+        function buyMinion() {
+            if (gameState.gold >= 50) {
+                gameState.gold -= 50;
+                gameState.minions++;
+                playCoinSound();
             }
         }
 
@@ -1362,6 +1365,11 @@
                 if (e.key === 'm' || e.key === 'M') {
                     e.preventDefault();
                     orderMinions();
+                }
+                
+                if (e.key === 'n' || e.key === 'N') {
+                    e.preventDefault();
+                    buyMinion();
                 }
                 
                 if (e.key === 'b' || e.key === 'B') {
