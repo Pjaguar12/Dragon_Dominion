@@ -151,11 +151,36 @@
             font-size: 1.3em;
             margin: 15px 0;
         }
+
+        #musicToggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+
+        #musicToggle:hover {
+            background: rgba(255, 215, 0, 0.2);
+            transform: scale(1.05);
+        }
+
+        #musicToggle.playing {
+            background: rgba(255, 215, 0, 0.3);
+        }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <h1>🐉 Dragon Dominion 🐉</h1>
+        <button id="musicToggle" onclick="toggleMusic()">🎵 Music: OFF</button>
         
         <div id="startScreen" class="screen active">
             <div class="instructions">
@@ -220,6 +245,100 @@
 
         // Audio Context for sound effects
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let backgroundMusic = null;
+        let musicPlaying = false;
+
+        function createBackgroundMusic() {
+            if (backgroundMusic) {
+                stopBackgroundMusic();
+            }
+            
+            backgroundMusic = {
+                oscillators: [],
+                gainNodes: [],
+                playing: true
+            };
+
+            // Create a simple ambient melody
+            const notes = [262, 294, 330, 349, 392, 440]; // C major scale notes
+            const melodyPattern = [0, 2, 4, 2, 0, 2, 4, 5, 4, 2, 0];
+            const bassPattern = [0, 0, 2, 2, 0, 0, 2, 2];
+            
+            // Melody oscillator
+            const melodyOsc = audioContext.createOscillator();
+            const melodyGain = audioContext.createGain();
+            melodyOsc.type = 'sine';
+            melodyOsc.connect(melodyGain);
+            melodyGain.connect(audioContext.destination);
+            melodyGain.gain.value = 0.05;
+            melodyOsc.start();
+            
+            backgroundMusic.oscillators.push(melodyOsc);
+            backgroundMusic.gainNodes.push(melodyGain);
+            
+            // Bass oscillator
+            const bassOsc = audioContext.createOscillator();
+            const bassGain = audioContext.createGain();
+            bassOsc.type = 'triangle';
+            bassOsc.connect(bassGain);
+            bassGain.connect(audioContext.destination);
+            bassGain.gain.value = 0.03;
+            bassOsc.start();
+            
+            backgroundMusic.oscillators.push(bassOsc);
+            backgroundMusic.gainNodes.push(bassGain);
+            
+            // Melody loop
+            let melodyIndex = 0;
+            backgroundMusic.melodyInterval = setInterval(() => {
+                if (backgroundMusic && backgroundMusic.playing) {
+                    melodyOsc.frequency.setValueAtTime(
+                        notes[melodyPattern[melodyIndex % melodyPattern.length]],
+                        audioContext.currentTime
+                    );
+                    melodyIndex++;
+                }
+            }, 600);
+            
+            // Bass loop
+            let bassIndex = 0;
+            backgroundMusic.bassInterval = setInterval(() => {
+                if (backgroundMusic && backgroundMusic.playing) {
+                    bassOsc.frequency.setValueAtTime(
+                        notes[bassPattern[bassIndex % bassPattern.length]] / 2,
+                        audioContext.currentTime
+                    );
+                    bassIndex++;
+                }
+            }, 1200);
+        }
+
+        function stopBackgroundMusic() {
+            if (backgroundMusic) {
+                backgroundMusic.playing = false;
+                if (backgroundMusic.melodyInterval) clearInterval(backgroundMusic.melodyInterval);
+                if (backgroundMusic.bassInterval) clearInterval(backgroundMusic.bassInterval);
+                backgroundMusic.oscillators.forEach(osc => {
+                    try { osc.stop(); } catch(e) {}
+                });
+                backgroundMusic = null;
+            }
+        }
+
+        function toggleMusic() {
+            musicPlaying = !musicPlaying;
+            const btn = document.getElementById('musicToggle');
+            
+            if (musicPlaying) {
+                createBackgroundMusic();
+                btn.textContent = '🎵 Music: ON';
+                btn.classList.add('playing');
+            } else {
+                stopBackgroundMusic();
+                btn.textContent = '🎵 Music: OFF';
+                btn.classList.remove('playing');
+            }
+        }
 
         function playSound(frequency, duration, type = 'sine') {
             const oscillator = audioContext.createOscillator();
@@ -556,15 +675,15 @@
             ctx.arc(screenX + d.size * 0.6, screenY - 5 + yOffset, 4, 0, Math.PI * 2);
             ctx.fill();
 
-            // Animated Wings
-            const wingSpread = d.flying ? 1.5 : 1.2;
+            // Animated Wings (bigger wings)
+            const wingSpread = d.flying ? 2.0 : 1.6;
             const wingAnimation = d.flying ? wingFlap * 0.4 : wingFlap * 0.2;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             
             // Top wing
             ctx.beginPath();
             ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
-            ctx.lineTo(screenX - d.size * wingSpread, screenY - d.size * (0.5 + wingAnimation) + yOffset);
+            ctx.lineTo(screenX - d.size * wingSpread, screenY - d.size * (0.7 + wingAnimation) + yOffset);
             ctx.lineTo(screenX - d.size * 0.5, screenY + d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
@@ -572,7 +691,7 @@
             // Bottom wing
             ctx.beginPath();
             ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
-            ctx.lineTo(screenX - d.size * wingSpread, screenY + d.size * (0.5 + wingAnimation) + yOffset);
+            ctx.lineTo(screenX - d.size * wingSpread, screenY + d.size * (0.7 + wingAnimation) + yOffset);
             ctx.lineTo(screenX - d.size * 0.5, screenY - d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
