@@ -28,6 +28,32 @@
             padding: 20px;
         }
 
+        #territoryMap {
+            margin: 10px auto;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .territory-bar {
+            width: 300px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        .territory-fill {
+            height: 100%;
+            background: linear-gradient(to right, #4CAF50, #8BC34A);
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+
         h1 {
             font-size: 3em;
             margin-bottom: 20px;
@@ -156,7 +182,14 @@
                 <span class="stat-item"><span class="stat-label">Health:</span> <span id="healthDisplay">100</span> HP</span>
                 <span class="stat-item"><span class="stat-label">Minions:</span> <span id="minionDisplay">0</span></span>
             </div>
-            <canvas id="canvas" width="1200" height="800"></canvas>
+            <div id="territoryMap">
+                <span style="color: #ffd700; font-weight: bold;">Territory Progress:</span>
+                <div class="territory-bar">
+                    <div class="territory-fill" id="territoryBar" style="width: 0%"></div>
+                </div>
+                <span style="margin-left: 10px;" id="territoryPercent">0%</span>
+            </div>
+            <canvas id="canvas" width="800" height="600"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
                 Press SPACEBAR to order minions • Press F to fly • Press B to breathe fire • Attack towns for treasure!
             </div>
@@ -244,7 +277,7 @@
             territory: 0,
             health: 100,
             minions: 0,
-            dragon: { x: 100, y: 100, size: 30, speed: 4, flying: false },
+            dragon: { x: 100, y: 100, size: 30, speed: 4, flying: false, wingAngle: 0 },
             keys: {},
             coins: [],
             knights: [],
@@ -262,7 +295,7 @@
             gameState.territory = 0;
             gameState.health = 100;
             gameState.minions = 0;
-            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4, flying: false };
+            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4, flying: false, wingAngle: 0 };
             gameState.coins = [];
             gameState.knights = [];
             gameState.obstacles = [];
@@ -271,14 +304,42 @@
             gameState.fireBreaths = [];
             gameState.frame = 0;
 
-            // Generate initial obstacles (more for bigger world)
-            for (let i = 0; i < 30; i++) {
-                gameState.obstacles.push({
-                    x: Math.random() * (canvas.width - 40) + 20,
-                    y: Math.random() * (canvas.height - 40) + 20,
-                    size: 25,
-                    type: Math.random() > 0.5 ? 'tree' : 'rock'
-                });
+            // Generate initial obstacles without overlapping
+            for (let i = 0; i < 20; i++) {
+                let attempts = 0;
+                let validPosition = false;
+                let newObstacle;
+                
+                while (!validPosition && attempts < 50) {
+                    newObstacle = {
+                        x: Math.random() * (canvas.width - 60) + 30,
+                        y: Math.random() * (canvas.height - 60) + 30,
+                        size: 25,
+                        type: Math.random() > 0.5 ? 'tree' : 'rock'
+                    };
+                    
+                    validPosition = true;
+                    // Check distance from dragon start position
+                    if (Math.abs(newObstacle.x - 100) < 60 && Math.abs(newObstacle.y - 100) < 60) {
+                        validPosition = false;
+                    }
+                    
+                    // Check distance from other obstacles
+                    for (let obs of gameState.obstacles) {
+                        const dx = newObstacle.x - obs.x;
+                        const dy = newObstacle.y - obs.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < 60) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+                
+                if (validPosition) {
+                    gameState.obstacles.push(newObstacle);
+                }
             }
 
             // Generate towns
@@ -353,6 +414,11 @@
             document.getElementById('territoryDisplay').textContent = gameState.territory;
             document.getElementById('healthDisplay').textContent = gameState.health;
             document.getElementById('minionDisplay').textContent = gameState.minions;
+            
+            // Update territory bar (goal is 100 acres)
+            const territoryPercent = Math.min(100, (gameState.territory / 100) * 100);
+            document.getElementById('territoryBar').style.width = territoryPercent + '%';
+            document.getElementById('territoryPercent').textContent = Math.floor(territoryPercent) + '%';
         }
 
         function updateHighScore() {
@@ -371,6 +437,10 @@
         // Drawing functions
         function drawDragon() {
             const d = gameState.dragon;
+            
+            // Animate wing flapping
+            d.wingAngle = (d.wingAngle + 0.15) % (Math.PI * 2);
+            const wingFlap = Math.sin(d.wingAngle) * 0.3;
             
             // Shadow if flying
             if (d.flying) {
@@ -400,19 +470,23 @@
             ctx.arc(d.x + d.size * 0.6, d.y - 5 + yOffset, 4, 0, Math.PI * 2);
             ctx.fill();
 
-            // Wings
+            // Animated Wings
             const wingSpread = d.flying ? 1.5 : 1.2;
+            const wingAnimation = d.flying ? wingFlap * 0.4 : wingFlap * 0.2;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
+            
+            // Top wing
             ctx.beginPath();
             ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
-            ctx.lineTo(d.x - d.size * wingSpread, d.y - d.size * 0.5 + yOffset);
+            ctx.lineTo(d.x - d.size * wingSpread, d.y - d.size * (0.5 + wingAnimation) + yOffset);
             ctx.lineTo(d.x - d.size * 0.5, d.y + d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
 
+            // Bottom wing
             ctx.beginPath();
             ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
-            ctx.lineTo(d.x - d.size * wingSpread, d.y + d.size * 0.5 + yOffset);
+            ctx.lineTo(d.x - d.size * wingSpread, d.y + d.size * (0.5 + wingAnimation) + yOffset);
             ctx.lineTo(d.x - d.size * 0.5, d.y - d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
@@ -536,16 +610,46 @@
             ctx.save();
             ctx.globalAlpha = fire.alpha;
             
-            const gradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, fire.size);
-            gradient.addColorStop(0, '#ffff00');
-            gradient.addColorStop(0.4, '#ff8800');
-            gradient.addColorStop(0.7, '#ff0000');
+            // Animated flickering effect
+            const flicker = Math.random() * 0.3 + 0.7;
+            const currentSize = fire.size * flicker;
+            
+            // Outer glow
+            const outerGradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, currentSize * 1.5);
+            outerGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
+            outerGradient.addColorStop(0.3, 'rgba(255, 136, 0, 0.6)');
+            outerGradient.addColorStop(0.6, 'rgba(255, 0, 0, 0.3)');
+            outerGradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            
+            ctx.fillStyle = outerGradient;
+            ctx.beginPath();
+            ctx.arc(fire.x, fire.y, currentSize * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Inner core
+            const gradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, currentSize);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.2, '#ffff00');
+            gradient.addColorStop(0.5, '#ff8800');
+            gradient.addColorStop(0.8, '#ff0000');
             gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(fire.x, fire.y, fire.size, 0, Math.PI * 2);
+            ctx.arc(fire.x, fire.y, currentSize, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Spark particles
+            for (let i = 0; i < 3; i++) {
+                const sparkX = fire.x + (Math.random() - 0.5) * currentSize;
+                const sparkY = fire.y + (Math.random() - 0.5) * currentSize;
+                const sparkSize = Math.random() * 3 + 1;
+                
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
             
             ctx.restore();
         }
