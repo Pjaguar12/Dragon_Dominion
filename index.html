@@ -278,6 +278,7 @@
             health: 100,
             minions: 0,
             dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0 },
+            lair: { x: 0, y: 0, radius: 80 },
             camera: { x: 0, y: 0 },
             worldWidth: 2400,
             worldHeight: 1800,
@@ -298,7 +299,9 @@
             gameState.territory = 0;
             gameState.health = 100;
             gameState.minions = 0;
-            gameState.dragon = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, size: 30, speed: 4, flying: false, wingAngle: 0 };
+            // Set lair at center of world
+            gameState.lair = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, radius: 80 };
+            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0 };
             gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
@@ -323,8 +326,12 @@
                     };
                     
                     validPosition = true;
-                    // Check distance from dragon start position
-                    if (Math.abs(newObstacle.x - gameState.dragon.x) < 100 && Math.abs(newObstacle.y - gameState.dragon.y) < 100) {
+                    // Check distance from lair
+                    const distFromLair = Math.sqrt(
+                        Math.pow(newObstacle.x - gameState.lair.x, 2) + 
+                        Math.pow(newObstacle.y - gameState.lair.y, 2)
+                    );
+                    if (distFromLair < gameState.lair.radius + 50) {
                         validPosition = false;
                     }
                     
@@ -346,15 +353,30 @@
                 }
             }
 
-            // Generate towns (across larger world)
+            // Generate towns (across larger world, away from lair)
             for (let i = 0; i < 8; i++) {
-                gameState.towns.push({
-                    x: Math.random() * (gameState.worldWidth - 200) + 100,
-                    y: Math.random() * (gameState.worldHeight - 200) + 100,
-                    size: 40,
-                    treasure: Math.floor(Math.random() * 5000) + 2000,
-                    health: 100
-                });
+                let townX, townY, validTown;
+                let attempts = 0;
+                do {
+                    townX = Math.random() * (gameState.worldWidth - 200) + 100;
+                    townY = Math.random() * (gameState.worldHeight - 200) + 100;
+                    const distFromLair = Math.sqrt(
+                        Math.pow(townX - gameState.lair.x, 2) + 
+                        Math.pow(townY - gameState.lair.y, 2)
+                    );
+                    validTown = distFromLair > 300;
+                    attempts++;
+                } while (!validTown && attempts < 50);
+                
+                if (validTown) {
+                    gameState.towns.push({
+                        x: townX,
+                        y: townY,
+                        size: 40,
+                        treasure: Math.floor(Math.random() * 5000) + 2000,
+                        health: 100
+                    });
+                }
             }
 
             // Generate initial coins
@@ -373,25 +395,17 @@
         }
 
         function spawnKnight() {
-            const side = Math.floor(Math.random() * 4);
-            let x, y;
-            
-            // Spawn near dragon's current position
-            const spawnDistance = 400;
-            switch(side) {
-                case 0: x = gameState.dragon.x + Math.random() * 200 - 100; y = gameState.dragon.y - spawnDistance; break;
-                case 1: x = gameState.dragon.x + spawnDistance; y = gameState.dragon.y + Math.random() * 200 - 100; break;
-                case 2: x = gameState.dragon.x + Math.random() * 200 - 100; y = gameState.dragon.y + spawnDistance; break;
-                case 3: x = gameState.dragon.x - spawnDistance; y = gameState.dragon.y + Math.random() * 200 - 100; break;
+            // Spawn at random town if towns exist
+            if (gameState.towns.length > 0) {
+                const randomTown = gameState.towns[Math.floor(Math.random() * gameState.towns.length)];
+                gameState.knights.push({
+                    x: randomTown.x + (Math.random() - 0.5) * 60,
+                    y: randomTown.y + (Math.random() - 0.5) * 60,
+                    size: 20,
+                    speed: 1.5,
+                    damage: 20
+                });
             }
-
-            gameState.knights.push({
-                x: x,
-                y: y,
-                size: 20,
-                speed: 1.5,
-                damage: 20
-            });
         }
 
         function startGame() {
@@ -451,6 +465,60 @@
         }
 
         // Drawing functions
+        function drawLair() {
+            const screenX = gameState.lair.x - gameState.camera.x;
+            const screenY = gameState.lair.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) return;
+            
+            // Lair base (cave entrance)
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, gameState.lair.radius);
+            gradient.addColorStop(0, '#1a1a1a');
+            gradient.addColorStop(0.5, '#2d2d2d');
+            gradient.addColorStop(0.8, '#404040');
+            gradient.addColorStop(1, '#4a4a4a');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, gameState.lair.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Cave entrance (darker)
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, gameState.lair.radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Treasure pile
+            ctx.fillStyle = '#ffd700';
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const dist = gameState.lair.radius * 0.6;
+                const coinX = screenX + Math.cos(angle) * dist;
+                const coinY = screenY + Math.sin(angle) * dist;
+                ctx.beginPath();
+                ctx.arc(coinX, coinY, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Territory boundary visualization
+            const territoryRadius = gameState.lair.radius + (gameState.territory * 2);
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, territoryRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Lair label
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏰 LAIR', screenX, screenY - gameState.lair.radius - 10);
+        }
+
         function drawDragon() {
             const d = gameState.dragon;
             const screenX = d.x - gameState.camera.x;
@@ -866,11 +934,12 @@
                         }
                     }
                 } else if (minion.returning) {
-                    const dx = gameState.dragon.x - minion.x;
-                    const dy = gameState.dragon.y - minion.y;
+                    // Return to lair instead of dragon
+                    const dx = gameState.lair.x - minion.x;
+                    const dy = gameState.lair.y - minion.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance < 20) {
+                    if (distance < gameState.lair.radius) {
                         minion.returning = false;
                     } else {
                         // Calculate new position
@@ -963,9 +1032,10 @@
 
         function orderMinions() {
             if (gameState.minions > 0 && gameState.minionWorkers.length < gameState.minions) {
+                // Spawn minions from lair
                 gameState.minionWorkers.push({
-                    x: gameState.dragon.x,
-                    y: gameState.dragon.y,
+                    x: gameState.lair.x,
+                    y: gameState.lair.y,
                     targetCoin: null,
                     returning: false
                 });
@@ -1001,7 +1071,13 @@
                 spawnCoins(2);
             }
 
+            // Spawn knight every minute (60 frames per second * 60 seconds = 3600 frames)
+            if (gameState.frame % 3600 === 0 && gameState.frame > 0) {
+                spawnKnight();
+            }
+
             // Draw everything
+            drawLair();
             gameState.obstacles.forEach(drawObstacle);
             gameState.towns.forEach(drawTown);
             gameState.coins.forEach(drawCoin);
