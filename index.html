@@ -190,7 +190,7 @@
                     <li><strong>Spacebar:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
                     <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>M Key:</strong> Order minions to collect gold</li>
-                    <li><strong>N Key:</strong> Buy a minion for 50 gold</li>
+                    <li><strong>H Key:</strong> Buy a minion for 50 gold</li>
                     <li><strong>Objective:</strong> Collect 50,000 gold and expand territory to 100 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
@@ -217,7 +217,7 @@
             </div>
             <canvas id="canvas" width="800" height="600"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
-                Press SPACEBAR to toggle flight • Press M to order minions • Press N to buy minion (50 gold) • Press B to breathe fire
+                Press SPACEBAR to toggle flight • Press M to order minions • Press H to buy minion (50 gold) • Press B to breathe fire
             </div>
         </div>
 
@@ -1081,14 +1081,27 @@
         }
 
         function updateMinions() {
-            for (let minion of gameState.minionWorkers) {
+            for (let i = 0; i < gameState.minionWorkers.length; i++) {
+                const minion = gameState.minionWorkers[i];
+                
                 // Minions move independently without player orders
                 if (!minion.targetCoin && !minion.returning) {
-                    // Find nearest coin
+                    // Find coins that aren't already targeted by other minions
+                    let availableCoins = gameState.coins.filter(coin => {
+                        // Check if this coin is already targeted
+                        for (let j = 0; j < gameState.minionWorkers.length; j++) {
+                            if (i !== j && gameState.minionWorkers[j].targetCoin === coin) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+
+                    // Find nearest available coin
                     let nearest = null;
                     let nearestDist = Infinity;
 
-                    for (let coin of gameState.coins) {
+                    for (let coin of availableCoins) {
                         const dx = coin.x - minion.x;
                         const dy = coin.y - minion.y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1207,10 +1220,18 @@
                             gameState.gold += town.treasure;
                             gameState.territory += 10;
                             playTownSound();
-                            // Spawn knights when town is attacked
-                            spawnKnight();
-                            spawnKnight();
                         }
+                        // Spawn a knight at the attacked town every time
+                        gameState.knights.push({
+                            x: town.x + (Math.random() - 0.5) * 60,
+                            y: town.y + (Math.random() - 0.5) * 60,
+                            size: 20,
+                            speed: 1.5,
+                            damage: 20
+                        });
+                        // Remove the fireball after hitting town
+                        gameState.fireBreaths.splice(i, 1);
+                        break;
                     }
                 }
                 
@@ -1234,6 +1255,7 @@
             const startX = d.x + Math.cos(d.rotation) * spawnDistance;
             const startY = d.y + Math.sin(d.rotation) * spawnDistance;
             
+            // Always create fireball
             gameState.fireBreaths.push({
                 x: startX,
                 y: startY,
@@ -1367,7 +1389,7 @@
                     orderMinions();
                 }
                 
-                if (e.key === 'n' || e.key === 'N') {
+                if (e.key === 'h' || e.key === 'H') {
                     e.preventDefault();
                     buyMinion();
                 }
