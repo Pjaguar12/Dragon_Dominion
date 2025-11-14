@@ -523,7 +523,9 @@
                     y: randomTown.y + (Math.random() - 0.5) * 60,
                     size: 20,
                     speed: 1.5,
-                    damage: 20
+                    damage: 20,
+                    health: 80,
+                    maxHealth: 80
                 });
             }
         }
@@ -845,6 +847,14 @@
             ctx.fillStyle = '#8b4513';
             ctx.fillRect(screenX + knight.size/2 - 2, screenY - 2, 10, 4);
             
+            // Health bar
+            const healthBarWidth = knight.size * 1.5;
+            const healthBarHeight = 4;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(screenX - healthBarWidth/2, screenY + knight.size, healthBarWidth, healthBarHeight);
+            ctx.fillStyle = knight.health > 40 ? '#0f0' : knight.health > 20 ? '#ff0' : '#f00';
+            ctx.fillRect(screenX - healthBarWidth/2, screenY + knight.size, healthBarWidth * (knight.health / knight.maxHealth), healthBarHeight);
+            
             ctx.restore();
         }
 
@@ -1059,6 +1069,15 @@
             if (gameState.gold >= 50000 && gameState.territory >= 100) {
                 winGame();
             }
+            
+            // Heal dragon when in lair
+            const distFromLair = Math.sqrt(
+                Math.pow(d.x - gameState.lair.x, 2) + 
+                Math.pow(d.y - gameState.lair.y, 2)
+            );
+            if (distFromLair < gameState.lair.radius && gameState.health < 100) {
+                gameState.health = Math.min(100, gameState.health + 0.5); // Heal gradually
+            }
         }
 
         function updateKnights() {
@@ -1151,8 +1170,32 @@
                             minion.x = newX;
                             minion.y = newY;
                         } else {
-                            // Try to move around obstacle
-                            minion.targetCoin = null;
+                            // Try moving around obstacle - try perpendicular directions
+                            const perpX1 = minion.x - (dy / distance) * 3;
+                            const perpY1 = minion.y + (dx / distance) * 3;
+                            const perpX2 = minion.x + (dy / distance) * 3;
+                            const perpY2 = minion.y - (dx / distance) * 3;
+                            
+                            let perp1Clear = true;
+                            let perp2Clear = true;
+                            
+                            for (let obs of gameState.obstacles) {
+                                if (checkCollision({x: perpX1, y: perpY1, size: 8}, obs, 0)) {
+                                    perp1Clear = false;
+                                }
+                                if (checkCollision({x: perpX2, y: perpY2, size: 8}, obs, 0)) {
+                                    perp2Clear = false;
+                                }
+                            }
+                            
+                            if (perp1Clear) {
+                                minion.x = perpX1;
+                                minion.y = perpY1;
+                            } else if (perp2Clear) {
+                                minion.x = perpX2;
+                                minion.y = perpY2;
+                            }
+                            // If both blocked, stay in place
                         }
                     }
                 } else if (minion.returning) {
@@ -1180,6 +1223,33 @@
                         if (!collided) {
                             minion.x = newX;
                             minion.y = newY;
+                        } else {
+                            // Try moving around obstacle - try perpendicular directions
+                            const perpX1 = minion.x - (dy / distance) * 3;
+                            const perpY1 = minion.y + (dx / distance) * 3;
+                            const perpX2 = minion.x + (dy / distance) * 3;
+                            const perpY2 = minion.y - (dx / distance) * 3;
+                            
+                            let perp1Clear = true;
+                            let perp2Clear = true;
+                            
+                            for (let obs of gameState.obstacles) {
+                                if (checkCollision({x: perpX1, y: perpY1, size: 8}, obs, 0)) {
+                                    perp1Clear = false;
+                                }
+                                if (checkCollision({x: perpX2, y: perpY2, size: 8}, obs, 0)) {
+                                    perp2Clear = false;
+                                }
+                            }
+                            
+                            if (perp1Clear) {
+                                minion.x = perpX1;
+                                minion.y = perpY1;
+                            } else if (perp2Clear) {
+                                minion.x = perpX2;
+                                minion.y = perpY2;
+                            }
+                            // If both blocked, stay in place
                         }
                     }
                 }
@@ -1198,8 +1268,15 @@
                 // Check collision with knights
                 for (let j = gameState.knights.length - 1; j >= 0; j--) {
                     if (checkCollision(fire, gameState.knights[j], 0)) {
-                        gameState.knights.splice(j, 1);
+                        gameState.knights[j].health -= 20;
+                        if (gameState.knights[j].health <= 0) {
+                            gameState.knights.splice(j, 1);
+                        }
                         playHitSound();
+                        // Remove fireball after hitting knight
+                        gameState.fireBreaths.splice(i, 1);
+                        i--;
+                        break;
                     }
                 }
                 
@@ -1208,10 +1285,15 @@
                     if (checkCollision(fire, gameState.obstacles[j], 0)) {
                         gameState.obstacles.splice(j, 1);
                         playHitSound();
+                        // Remove fireball after hitting obstacle
+                        gameState.fireBreaths.splice(i, 1);
+                        i--;
+                        break;
                     }
                 }
                 
                 // Check collision with towns
+                let townHit = false;
                 for (let town of gameState.towns) {
                     if (checkCollision(fire, town, 0)) {
                         town.health -= 10;
@@ -1227,12 +1309,20 @@
                             y: town.y + (Math.random() - 0.5) * 60,
                             size: 20,
                             speed: 1.5,
-                            damage: 20
+                            damage: 20,
+                            health: 80,
+                            maxHealth: 80
                         });
-                        // Remove the fireball after hitting town
-                        gameState.fireBreaths.splice(i, 1);
+                        townHit = true;
                         break;
                     }
+                }
+                
+                if (townHit) {
+                    // Remove the fireball after hitting town
+                    gameState.fireBreaths.splice(i, 1);
+                    i--;
+                    continue;
                 }
                 
                 // Remove fire if out of bounds or life expired
