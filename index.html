@@ -162,9 +162,9 @@
                 <h3>📜 How to Play:</h3>
                 <ul>
                     <li><strong>Arrow Keys:</strong> Move your dragon</li>
-                    <li><strong>F Key:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
+                    <li><strong>Spacebar:</strong> Toggle flying (pass through obstacles, can't collect/be hit)</li>
                     <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
-                    <li><strong>Spacebar:</strong> Order minions to collect gold</li>
+                    <li><strong>M Key:</strong> Order minions to collect gold</li>
                     <li><strong>Objective:</strong> Collect 1,000,000 gold and expand territory to 100 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
@@ -191,7 +191,7 @@
             </div>
             <canvas id="canvas" width="800" height="600"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
-                Press SPACEBAR to order minions • Press F to fly • Press B to breathe fire • Attack towns for treasure!
+                Press SPACEBAR to toggle flight • Press M to order minions • Press B to breathe fire • Attack towns for treasure!
             </div>
         </div>
 
@@ -277,7 +277,10 @@
             territory: 0,
             health: 100,
             minions: 0,
-            dragon: { x: 100, y: 100, size: 30, speed: 4, flying: false, wingAngle: 0 },
+            dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0 },
+            camera: { x: 0, y: 0 },
+            worldWidth: 2400,
+            worldHeight: 1800,
             keys: {},
             coins: [],
             knights: [],
@@ -295,7 +298,8 @@
             gameState.territory = 0;
             gameState.health = 100;
             gameState.minions = 0;
-            gameState.dragon = { x: 100, y: 100, size: 30, speed: 4, flying: false, wingAngle: 0 };
+            gameState.dragon = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, size: 30, speed: 4, flying: false, wingAngle: 0 };
+            gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
             gameState.obstacles = [];
@@ -304,23 +308,23 @@
             gameState.fireBreaths = [];
             gameState.frame = 0;
 
-            // Generate initial obstacles without overlapping
-            for (let i = 0; i < 20; i++) {
+            // Generate initial obstacles without overlapping (across larger world)
+            for (let i = 0; i < 60; i++) {
                 let attempts = 0;
                 let validPosition = false;
                 let newObstacle;
                 
                 while (!validPosition && attempts < 50) {
                     newObstacle = {
-                        x: Math.random() * (canvas.width - 60) + 30,
-                        y: Math.random() * (canvas.height - 60) + 30,
+                        x: Math.random() * (gameState.worldWidth - 60) + 30,
+                        y: Math.random() * (gameState.worldHeight - 60) + 30,
                         size: 25,
                         type: Math.random() > 0.5 ? 'tree' : 'rock'
                     };
                     
                     validPosition = true;
                     // Check distance from dragon start position
-                    if (Math.abs(newObstacle.x - 100) < 60 && Math.abs(newObstacle.y - 100) < 60) {
+                    if (Math.abs(newObstacle.x - gameState.dragon.x) < 100 && Math.abs(newObstacle.y - gameState.dragon.y) < 100) {
                         validPosition = false;
                     }
                     
@@ -342,11 +346,11 @@
                 }
             }
 
-            // Generate towns
-            for (let i = 0; i < 5; i++) {
+            // Generate towns (across larger world)
+            for (let i = 0; i < 8; i++) {
                 gameState.towns.push({
-                    x: Math.random() * (canvas.width - 100) + 50,
-                    y: Math.random() * (canvas.height - 100) + 50,
+                    x: Math.random() * (gameState.worldWidth - 200) + 100,
+                    y: Math.random() * (gameState.worldHeight - 200) + 100,
                     size: 40,
                     treasure: Math.floor(Math.random() * 5000) + 2000,
                     health: 100
@@ -354,14 +358,14 @@
             }
 
             // Generate initial coins
-            spawnCoins(5);
+            spawnCoins(10);
         }
 
         function spawnCoins(count) {
             for (let i = 0; i < count; i++) {
                 gameState.coins.push({
-                    x: Math.random() * (canvas.width - 30) + 15,
-                    y: Math.random() * (canvas.height - 30) + 15,
+                    x: Math.random() * (gameState.worldWidth - 30) + 15,
+                    y: Math.random() * (gameState.worldHeight - 30) + 15,
                     size: 15,
                     value: Math.floor(Math.random() * 50) + 10
                 });
@@ -372,11 +376,13 @@
             const side = Math.floor(Math.random() * 4);
             let x, y;
             
+            // Spawn near dragon's current position
+            const spawnDistance = 400;
             switch(side) {
-                case 0: x = Math.random() * canvas.width; y = -20; break;
-                case 1: x = canvas.width + 20; y = Math.random() * canvas.height; break;
-                case 2: x = Math.random() * canvas.width; y = canvas.height + 20; break;
-                case 3: x = -20; y = Math.random() * canvas.height; break;
+                case 0: x = gameState.dragon.x + Math.random() * 200 - 100; y = gameState.dragon.y - spawnDistance; break;
+                case 1: x = gameState.dragon.x + spawnDistance; y = gameState.dragon.y + Math.random() * 200 - 100; break;
+                case 2: x = gameState.dragon.x + Math.random() * 200 - 100; y = gameState.dragon.y + spawnDistance; break;
+                case 3: x = gameState.dragon.x - spawnDistance; y = gameState.dragon.y + Math.random() * 200 - 100; break;
             }
 
             gameState.knights.push({
@@ -421,6 +427,16 @@
             document.getElementById('territoryPercent').textContent = Math.floor(territoryPercent) + '%';
         }
 
+        function updateCamera() {
+            // Center camera on dragon
+            gameState.camera.x = gameState.dragon.x - canvas.width / 2;
+            gameState.camera.y = gameState.dragon.y - canvas.height / 2;
+            
+            // Clamp camera to world bounds
+            gameState.camera.x = Math.max(0, Math.min(gameState.worldWidth - canvas.width, gameState.camera.x));
+            gameState.camera.y = Math.max(0, Math.min(gameState.worldHeight - canvas.height, gameState.camera.y));
+        }
+
         function updateHighScore() {
             const highScore = localStorage.getItem('dragonDominionHighScore') || 0;
             document.getElementById('highScore').textContent = `High Score: ${parseInt(highScore).toLocaleString()} gold`;
@@ -437,6 +453,8 @@
         // Drawing functions
         function drawDragon() {
             const d = gameState.dragon;
+            const screenX = d.x - gameState.camera.x;
+            const screenY = d.y - gameState.camera.y;
             
             // Animate wing flapping
             d.wingAngle = (d.wingAngle + 0.15) % (Math.PI * 2);
@@ -446,7 +464,7 @@
             if (d.flying) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.beginPath();
-                ctx.ellipse(d.x, d.y + 20, d.size * 0.6, d.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.ellipse(screenX, screenY + 20, d.size * 0.6, d.size * 0.3, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
             
@@ -455,19 +473,19 @@
             // Body
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.beginPath();
-            ctx.ellipse(d.x, d.y + yOffset, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(screenX, screenY + yOffset, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
             ctx.fill();
 
             // Head
             ctx.fillStyle = d.flying ? '#4a8b2f' : '#3a6b1f';
             ctx.beginPath();
-            ctx.arc(d.x + d.size * 0.5, d.y + yOffset, d.size * 0.5, 0, Math.PI * 2);
+            ctx.arc(screenX + d.size * 0.5, screenY + yOffset, d.size * 0.5, 0, Math.PI * 2);
             ctx.fill();
 
             // Eyes
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(d.x + d.size * 0.6, d.y - 5 + yOffset, 4, 0, Math.PI * 2);
+            ctx.arc(screenX + d.size * 0.6, screenY - 5 + yOffset, 4, 0, Math.PI * 2);
             ctx.fill();
 
             // Animated Wings
@@ -477,17 +495,17 @@
             
             // Top wing
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
-            ctx.lineTo(d.x - d.size * wingSpread, d.y - d.size * (0.5 + wingAnimation) + yOffset);
-            ctx.lineTo(d.x - d.size * 0.5, d.y + d.size * 0.3 + yOffset);
+            ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
+            ctx.lineTo(screenX - d.size * wingSpread, screenY - d.size * (0.5 + wingAnimation) + yOffset);
+            ctx.lineTo(screenX - d.size * 0.5, screenY + d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
 
             // Bottom wing
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.3, d.y + yOffset);
-            ctx.lineTo(d.x - d.size * wingSpread, d.y + d.size * (0.5 + wingAnimation) + yOffset);
-            ctx.lineTo(d.x - d.size * 0.5, d.y - d.size * 0.3 + yOffset);
+            ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
+            ctx.lineTo(screenX - d.size * wingSpread, screenY + d.size * (0.5 + wingAnimation) + yOffset);
+            ctx.lineTo(screenX - d.size * 0.5, screenY - d.size * 0.3 + yOffset);
             ctx.closePath();
             ctx.fill();
 
@@ -495,60 +513,78 @@
             ctx.strokeStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.lineWidth = 8;
             ctx.beginPath();
-            ctx.moveTo(d.x - d.size * 0.8, d.y + yOffset);
-            ctx.quadraticCurveTo(d.x - d.size * 1.5, d.y + d.size * 0.5 + yOffset, d.x - d.size * 1.8, d.y + yOffset);
+            ctx.moveTo(screenX - d.size * 0.8, screenY + yOffset);
+            ctx.quadraticCurveTo(screenX - d.size * 1.5, screenY + d.size * 0.5 + yOffset, screenX - d.size * 1.8, screenY + yOffset);
             ctx.stroke();
         }
 
         function drawCoin(coin) {
+            const screenX = coin.x - gameState.camera.x;
+            const screenY = coin.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -20 || screenX > canvas.width + 20 || screenY < -20 || screenY > canvas.height + 20) return;
+            
             ctx.fillStyle = '#ffd700';
             ctx.strokeStyle = '#daa520';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(coin.x, coin.y, coin.size, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, coin.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = '#daa520';
             ctx.font = 'bold 10px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('$', coin.x, coin.y + 4);
+            ctx.fillText('$', screenX, screenY + 4);
         }
 
         function drawKnight(knight) {
+            const screenX = knight.x - gameState.camera.x;
+            const screenY = knight.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -50 || screenX > canvas.width + 50 || screenY < -50 || screenY > canvas.height + 50) return;
+            
             // Body
             ctx.fillStyle = '#708090';
-            ctx.fillRect(knight.x - knight.size/2, knight.y - knight.size/2, knight.size, knight.size * 1.2);
+            ctx.fillRect(screenX - knight.size/2, screenY - knight.size/2, knight.size, knight.size * 1.2);
 
             // Helmet
             ctx.fillStyle = '#505050';
             ctx.beginPath();
-            ctx.arc(knight.x, knight.y - knight.size/2, knight.size/2, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY - knight.size/2, knight.size/2, 0, Math.PI * 2);
             ctx.fill();
 
             // Sword
             ctx.strokeStyle = '#c0c0c0';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(knight.x + knight.size/2, knight.y);
-            ctx.lineTo(knight.x + knight.size, knight.y - knight.size/2);
+            ctx.moveTo(screenX + knight.size/2, screenY);
+            ctx.lineTo(screenX + knight.size, screenY - knight.size/2);
             ctx.stroke();
 
             // Sword handle
             ctx.fillStyle = '#8b4513';
-            ctx.fillRect(knight.x + knight.size/2 - 2, knight.y - 2, 10, 4);
+            ctx.fillRect(screenX + knight.size/2 - 2, screenY - 2, 10, 4);
         }
 
         function drawObstacle(obs) {
+            const screenX = obs.x - gameState.camera.x;
+            const screenY = obs.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -50 || screenX > canvas.width + 50 || screenY < -50 || screenY > canvas.height + 50) return;
+            
             if (obs.type === 'tree') {
                 // Tree trunk
                 ctx.fillStyle = '#8b4513';
-                ctx.fillRect(obs.x - 5, obs.y, 10, obs.size);
+                ctx.fillRect(screenX - 5, screenY, 10, obs.size);
 
                 // Tree foliage
                 ctx.fillStyle = '#228b22';
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y - 5, obs.size * 0.8, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY - 5, obs.size * 0.8, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 // Rock
@@ -556,57 +592,75 @@
                 ctx.strokeStyle = '#696969';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y + obs.size/2, obs.size * 0.8, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY + obs.size/2, obs.size * 0.8, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
             }
         }
 
         function drawMinion(minion) {
+            const screenX = minion.x - gameState.camera.x;
+            const screenY = minion.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -20 || screenX > canvas.width + 20 || screenY < -20 || screenY > canvas.height + 20) return;
+            
             ctx.fillStyle = '#8b0000';
             ctx.beginPath();
-            ctx.arc(minion.x, minion.y, 8, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.fillStyle = '#ffff00';
             ctx.font = 'bold 8px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('M', minion.x, minion.y + 3);
+            ctx.fillText('M', screenX, screenY + 3);
         }
 
         function drawTown(town) {
+            const screenX = town.x - gameState.camera.x;
+            const screenY = town.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -100 || screenX > canvas.width + 100 || screenY < -100 || screenY > canvas.height + 100) return;
+            
             // Buildings
             ctx.fillStyle = '#8b4513';
-            ctx.fillRect(town.x - town.size/2, town.y - town.size/2, town.size * 0.4, town.size * 0.6);
-            ctx.fillRect(town.x, town.y - town.size/2, town.size * 0.4, town.size * 0.5);
+            ctx.fillRect(screenX - town.size/2, screenY - town.size/2, town.size * 0.4, town.size * 0.6);
+            ctx.fillRect(screenX, screenY - town.size/2, town.size * 0.4, town.size * 0.5);
             
             // Roofs
             ctx.fillStyle = '#a0522d';
             ctx.beginPath();
-            ctx.moveTo(town.x - town.size/2 - 5, town.y - town.size/2);
-            ctx.lineTo(town.x - town.size * 0.1, town.y - town.size * 0.8);
-            ctx.lineTo(town.x - town.size * 0.1, town.y - town.size/2);
+            ctx.moveTo(screenX - town.size/2 - 5, screenY - town.size/2);
+            ctx.lineTo(screenX - town.size * 0.1, screenY - town.size * 0.8);
+            ctx.lineTo(screenX - town.size * 0.1, screenY - town.size/2);
             ctx.fill();
             
             ctx.beginPath();
-            ctx.moveTo(town.x, town.y - town.size/2);
-            ctx.lineTo(town.x + town.size * 0.2, town.y - town.size * 0.7);
-            ctx.lineTo(town.x + town.size * 0.4, town.y - town.size/2);
+            ctx.moveTo(screenX, screenY - town.size/2);
+            ctx.lineTo(screenX + town.size * 0.2, screenY - town.size * 0.7);
+            ctx.lineTo(screenX + town.size * 0.4, screenY - town.size/2);
             ctx.fill();
             
             // Castle flag
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(town.x + town.size * 0.15, town.y - town.size * 0.7, 2, 10);
-            ctx.fillRect(town.x + town.size * 0.15, town.y - town.size * 0.7, 8, 5);
+            ctx.fillRect(screenX + town.size * 0.15, screenY - town.size * 0.7, 2, 10);
+            ctx.fillRect(screenX + town.size * 0.15, screenY - town.size * 0.7, 8, 5);
             
             // Health bar
             ctx.fillStyle = '#000';
-            ctx.fillRect(town.x - town.size/2, town.y + town.size/2 + 5, town.size, 5);
+            ctx.fillRect(screenX - town.size/2, screenY + town.size/2 + 5, town.size, 5);
             ctx.fillStyle = town.health > 50 ? '#0f0' : town.health > 25 ? '#ff0' : '#f00';
-            ctx.fillRect(town.x - town.size/2, town.y + town.size/2 + 5, town.size * (town.health / 100), 5);
+            ctx.fillRect(screenX - town.size/2, screenY + town.size/2 + 5, town.size * (town.health / 100), 5);
         }
 
         function drawFireBreath(fire) {
+            const screenX = fire.x - gameState.camera.x;
+            const screenY = fire.y - gameState.camera.y;
+            
+            // Only draw if in view
+            if (screenX < -50 || screenX > canvas.width + 50 || screenY < -50 || screenY > canvas.height + 50) return;
+            
             ctx.save();
             ctx.globalAlpha = fire.alpha;
             
@@ -615,7 +669,7 @@
             const currentSize = fire.size * flicker;
             
             // Outer glow
-            const outerGradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, currentSize * 1.5);
+            const outerGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, currentSize * 1.5);
             outerGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
             outerGradient.addColorStop(0.3, 'rgba(255, 136, 0, 0.6)');
             outerGradient.addColorStop(0.6, 'rgba(255, 0, 0, 0.3)');
@@ -623,11 +677,11 @@
             
             ctx.fillStyle = outerGradient;
             ctx.beginPath();
-            ctx.arc(fire.x, fire.y, currentSize * 1.5, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, currentSize * 1.5, 0, Math.PI * 2);
             ctx.fill();
             
             // Inner core
-            const gradient = ctx.createRadialGradient(fire.x, fire.y, 0, fire.x, fire.y, currentSize);
+            const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, currentSize);
             gradient.addColorStop(0, '#ffffff');
             gradient.addColorStop(0.2, '#ffff00');
             gradient.addColorStop(0.5, '#ff8800');
@@ -636,13 +690,13 @@
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.arc(fire.x, fire.y, currentSize, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, currentSize, 0, Math.PI * 2);
             ctx.fill();
             
             // Spark particles
             for (let i = 0; i < 3; i++) {
-                const sparkX = fire.x + (Math.random() - 0.5) * currentSize;
-                const sparkY = fire.y + (Math.random() - 0.5) * currentSize;
+                const sparkX = screenX + (Math.random() - 0.5) * currentSize;
+                const sparkY = screenY + (Math.random() - 0.5) * currentSize;
                 const sparkSize = Math.random() * 3 + 1;
                 
                 ctx.fillStyle = '#ffff00';
@@ -672,9 +726,9 @@
             if (gameState.keys['ArrowUp']) newY -= d.speed;
             if (gameState.keys['ArrowDown']) newY += d.speed;
 
-            // Keep dragon in bounds
-            newX = Math.max(d.size, Math.min(canvas.width - d.size, newX));
-            newY = Math.max(d.size, Math.min(canvas.height - d.size, newY));
+            // Keep dragon in world bounds
+            newX = Math.max(d.size, Math.min(gameState.worldWidth - d.size, newX));
+            newY = Math.max(d.size, Math.min(gameState.worldHeight - d.size, newY));
 
             // Check obstacle collision only if not flying
             let collided = false;
@@ -937,8 +991,10 @@
 
             // Update game
             updateDragon();
+            updateCamera();
             updateKnights();
             updateMinions();
+            updateFireBreath();
 
             // Spawn coins periodically
             if (gameState.frame % 180 === 0) {
@@ -947,9 +1003,11 @@
 
             // Draw everything
             gameState.obstacles.forEach(drawObstacle);
+            gameState.towns.forEach(drawTown);
             gameState.coins.forEach(drawCoin);
             gameState.knights.forEach(drawKnight);
             gameState.minionWorkers.forEach(drawMinion);
+            gameState.fireBreaths.forEach(drawFireBreath);
             drawDragon();
 
             updateStats();
@@ -990,13 +1048,13 @@
                 
                 if (e.key === ' ') {
                     e.preventDefault();
-                    orderMinions();
-                }
-                
-                if (e.key === 'f' || e.key === 'F') {
-                    e.preventDefault();
                     gameState.dragon.flying = !gameState.dragon.flying;
                     playFlySound();
+                }
+                
+                if (e.key === 'm' || e.key === 'M') {
+                    e.preventDefault();
+                    orderMinions();
                 }
                 
                 if (e.key === 'b' || e.key === 'B') {
