@@ -396,7 +396,7 @@
             territory: 0,
             health: 100,
             minions: 0,
-            dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0 },
+            dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0 },
             lair: { x: 0, y: 0, radius: 80 },
             camera: { x: 0, y: 0 },
             worldWidth: 2400,
@@ -420,7 +420,7 @@
             gameState.minions = 0;
             // Set lair at center of world
             gameState.lair = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, radius: 80 };
-            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0 };
+            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0 };
             gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
@@ -729,62 +729,67 @@
             d.wingAngle = (d.wingAngle + 0.15) % (Math.PI * 2);
             const wingFlap = Math.sin(d.wingAngle) * 0.3;
             
+            ctx.save();
+            ctx.translate(screenX, screenY);
+            ctx.rotate(d.rotation);
+            
             // Shadow if flying
             if (d.flying) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.beginPath();
-                ctx.ellipse(screenX, screenY + 20, d.size * 0.6, d.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, 5, d.size * 0.8, d.size * 0.4, 0, 0, Math.PI * 2);
                 ctx.fill();
             }
             
-            const yOffset = d.flying ? -15 : 0;
+            const yOffset = d.flying ? -5 : 0;
             
-            // Body
+            // Animated Wings (top-down view)
+            const wingSpread = d.flying ? 2.0 : 1.6;
+            const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
+            ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
+            
+            // Left wing
+            ctx.beginPath();
+            ctx.ellipse(-d.size * 0.3, yOffset - d.size * (0.4 + wingAnimation), 
+                       d.size * wingSpread * 0.5, d.size * 0.6, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right wing
+            ctx.beginPath();
+            ctx.ellipse(-d.size * 0.3, yOffset + d.size * (0.4 + wingAnimation), 
+                       d.size * wingSpread * 0.5, d.size * 0.6, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Body (elongated oval)
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.beginPath();
-            ctx.ellipse(screenX, screenY + yOffset, d.size * 0.8, d.size * 0.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, yOffset, d.size * 1.2, d.size * 0.7, 0, 0, Math.PI * 2);
             ctx.fill();
-
+            
             // Head
             ctx.fillStyle = d.flying ? '#4a8b2f' : '#3a6b1f';
             ctx.beginPath();
-            ctx.arc(screenX + d.size * 0.5, screenY + yOffset, d.size * 0.5, 0, Math.PI * 2);
+            ctx.ellipse(d.size * 0.8, yOffset, d.size * 0.5, d.size * 0.4, 0, 0, Math.PI * 2);
             ctx.fill();
-
+            
             // Eyes
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(screenX + d.size * 0.6, screenY - 5 + yOffset, 4, 0, Math.PI * 2);
+            ctx.arc(d.size * 0.9, yOffset - d.size * 0.15, 3, 0, Math.PI * 2);
             ctx.fill();
-
-            // Animated Wings (bigger wings)
-            const wingSpread = d.flying ? 2.0 : 1.6;
-            const wingAnimation = d.flying ? wingFlap * 0.4 : wingFlap * 0.2;
-            ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
+            ctx.beginPath();
+            ctx.arc(d.size * 0.9, yOffset + d.size * 0.15, 3, 0, Math.PI * 2);
+            ctx.fill();
             
-            // Top wing
-            ctx.beginPath();
-            ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
-            ctx.lineTo(screenX - d.size * wingSpread, screenY - d.size * (0.7 + wingAnimation) + yOffset);
-            ctx.lineTo(screenX - d.size * 0.5, screenY + d.size * 0.3 + yOffset);
-            ctx.closePath();
-            ctx.fill();
-
-            // Bottom wing
-            ctx.beginPath();
-            ctx.moveTo(screenX - d.size * 0.3, screenY + yOffset);
-            ctx.lineTo(screenX - d.size * wingSpread, screenY + d.size * (0.7 + wingAnimation) + yOffset);
-            ctx.lineTo(screenX - d.size * 0.5, screenY - d.size * 0.3 + yOffset);
-            ctx.closePath();
-            ctx.fill();
-
-            // Tail
+            // Tail (behind body)
             ctx.strokeStyle = d.flying ? '#3a6b1f' : '#2d5016';
-            ctx.lineWidth = 8;
+            ctx.lineWidth = 6;
             ctx.beginPath();
-            ctx.moveTo(screenX - d.size * 0.8, screenY + yOffset);
-            ctx.quadraticCurveTo(screenX - d.size * 1.5, screenY + d.size * 0.5 + yOffset, screenX - d.size * 1.8, screenY + yOffset);
+            ctx.moveTo(-d.size * 0.8, yOffset);
+            ctx.quadraticCurveTo(-d.size * 1.5, yOffset - d.size * 0.3, -d.size * 2, yOffset);
             ctx.stroke();
+            
+            ctx.restore();
         }
 
         function drawCoin(coin) {
@@ -989,11 +994,22 @@
             const d = gameState.dragon;
             let newX = d.x;
             let newY = d.y;
+            let moving = false;
+            let moveX = 0;
+            let moveY = 0;
 
-            if (gameState.keys['ArrowLeft']) newX -= d.speed;
-            if (gameState.keys['ArrowRight']) newX += d.speed;
-            if (gameState.keys['ArrowUp']) newY -= d.speed;
-            if (gameState.keys['ArrowDown']) newY += d.speed;
+            if (gameState.keys['ArrowLeft']) { moveX = -d.speed; moving = true; }
+            if (gameState.keys['ArrowRight']) { moveX = d.speed; moving = true; }
+            if (gameState.keys['ArrowUp']) { moveY = -d.speed; moving = true; }
+            if (gameState.keys['ArrowDown']) { moveY = d.speed; moving = true; }
+
+            newX += moveX;
+            newY += moveY;
+
+            // Update rotation based on movement direction
+            if (moving) {
+                d.rotation = Math.atan2(moveY, moveX);
+            }
 
             // Keep dragon in world bounds
             newX = Math.max(d.size, Math.min(gameState.worldWidth - d.size, newX));
@@ -1215,14 +1231,22 @@
 
         function breathFire() {
             const d = gameState.dragon;
-            const angle = 0; // Fire to the right
             const speed = 8;
             
+            // Calculate velocity based on dragon's rotation
+            const vx = Math.cos(d.rotation) * speed;
+            const vy = Math.sin(d.rotation) * speed;
+            
+            // Spawn fireball in front of dragon
+            const spawnDistance = d.size * 1.5;
+            const startX = d.x + Math.cos(d.rotation) * spawnDistance;
+            const startY = d.y + Math.sin(d.rotation) * spawnDistance;
+            
             gameState.fireBreaths.push({
-                x: d.x + d.size,
-                y: d.y,
-                vx: speed,
-                vy: 0,
+                x: startX,
+                y: startY,
+                vx: vx,
+                vy: vy,
                 size: 20,
                 life: 30,
                 alpha: 1
