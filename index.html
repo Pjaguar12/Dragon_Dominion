@@ -746,21 +746,21 @@
             
             const yOffset = d.flying ? -5 : 0;
             
-            // Animated Wings (top-down view)
-            const wingSpread = d.flying ? 2.0 : 1.6;
+            // Animated Wings (top-down view) - LONGER WINGS
+            const wingSpread = d.flying ? 2.8 : 2.2;
             const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             
-            // Left wing
+            // Left wing (longer)
             ctx.beginPath();
-            ctx.ellipse(-d.size * 0.3, yOffset - d.size * (0.4 + wingAnimation), 
-                       d.size * wingSpread * 0.5, d.size * 0.6, -0.3, 0, Math.PI * 2);
+            ctx.ellipse(-d.size * 0.3, yOffset - d.size * (0.5 + wingAnimation), 
+                       d.size * wingSpread * 0.6, d.size * 0.8, -0.3, 0, Math.PI * 2);
             ctx.fill();
             
-            // Right wing
+            // Right wing (longer)
             ctx.beginPath();
-            ctx.ellipse(-d.size * 0.3, yOffset + d.size * (0.4 + wingAnimation), 
-                       d.size * wingSpread * 0.5, d.size * 0.6, 0.3, 0, Math.PI * 2);
+            ctx.ellipse(-d.size * 0.3, yOffset + d.size * (0.5 + wingAnimation), 
+                       d.size * wingSpread * 0.6, d.size * 0.8, 0.3, 0, Math.PI * 2);
             ctx.fill();
             
             // Body (elongated oval)
@@ -775,8 +775,8 @@
             ctx.ellipse(d.size * 0.8, yOffset, d.size * 0.5, d.size * 0.4, 0, 0, Math.PI * 2);
             ctx.fill();
             
-            // Eyes
-            ctx.fillStyle = '#ff0000';
+            // Eyes (yellow)
+            ctx.fillStyle = '#ffff00';
             ctx.beginPath();
             ctx.arc(d.size * 0.9, yOffset - d.size * 0.15, 3, 0, Math.PI * 2);
             ctx.fill();
@@ -1052,14 +1052,20 @@
 
             // Check knight collision (only when not flying)
             if (!d.flying) {
-                for (let i = gameState.knights.length - 1; i >= 0; i--) {
-                    if (checkCollision(d, gameState.knights[i], 0)) {
-                        gameState.health -= gameState.knights[i].damage;
-                        gameState.knights.splice(i, 1);
-                        playHitSound();
+                for (let knight of gameState.knights) {
+                    if (checkCollision(d, knight, 0)) {
+                        // Knights damage dragon but aren't removed on collision
+                        if (!knight.justHit) {
+                            gameState.health -= knight.damage;
+                            knight.justHit = true;
+                            playHitSound();
+                            
+                            // Reset hit flag after a short time
+                            setTimeout(() => knight.justHit = false, 1000);
 
-                        if (gameState.health <= 0) {
-                            gameOver();
+                            if (gameState.health <= 0) {
+                                gameOver();
+                            }
                         }
                     }
                 }
@@ -1332,7 +1338,16 @@
             }
         }
 
+        let lastFireTime = 0;
+        const FIRE_COOLDOWN = 300; // milliseconds
+        
         function breathFire() {
+            const now = Date.now();
+            if (now - lastFireTime < FIRE_COOLDOWN) {
+                return; // Still on cooldown
+            }
+            lastFireTime = now;
+            
             const d = gameState.dragon;
             const speed = 8;
             
@@ -1345,8 +1360,8 @@
             const startX = d.x + Math.cos(d.rotation) * spawnDistance;
             const startY = d.y + Math.sin(d.rotation) * spawnDistance;
             
-            // Always create fireball
-            gameState.fireBreaths.push({
+            // Always create fireball - GUARANTEED
+            const newFireball = {
                 x: startX,
                 y: startY,
                 vx: vx,
@@ -1354,7 +1369,10 @@
                 size: 20,
                 life: 30,
                 alpha: 1
-            });
+            };
+            gameState.fireBreaths.push(newFireball);
+            
+            console.log('Fireball created:', newFireball, 'Total fireballs:', gameState.fireBreaths.length);
             
             playFireSound();
         }
