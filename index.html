@@ -1331,8 +1331,8 @@
                     continue;
                 }
                 
-                // Remove fire if life expired or out of world bounds
-                if (fire.life <= 0 || fire.x < 0 || fire.x > gameState.worldWidth || fire.y < 0 || fire.y > gameState.worldHeight) {
+                // Remove fire only if life expired
+                if (fire.life <= 0) {
                     gameState.fireBreaths.splice(i, 1);
                 }
             }
