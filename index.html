@@ -1098,10 +1098,10 @@
                 }
             }
 
-            // Remove knights that are off screen
+            // Remove knights that are out of world bounds
             gameState.knights = gameState.knights.filter(k => 
-                k.x > -50 && k.x < canvas.width + 50 && 
-                k.y > -50 && k.y < canvas.height + 50
+                k.x > -50 && k.x < gameState.worldWidth + 50 && 
+                k.y > -50 && k.y < gameState.worldHeight + 50
             );
         }
 
@@ -1331,8 +1331,8 @@
                     continue;
                 }
                 
-                // Remove fire if out of bounds or life expired
-                if (fire.life <= 0 || fire.x < 0 || fire.x > canvas.width || fire.y < 0 || fire.y > canvas.height) {
+                // Remove fire if life expired or out of world bounds
+                if (fire.life <= 0 || fire.x < 0 || fire.x > gameState.worldWidth || fire.y < 0 || fire.y > gameState.worldHeight) {
                     gameState.fireBreaths.splice(i, 1);
                 }
             }
