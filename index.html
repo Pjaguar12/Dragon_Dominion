@@ -747,7 +747,7 @@
             const yOffset = d.flying ? -5 : 0;
             
             // Animated Wings (top-down view) - WIDER WINGS
-            const wingSpread = d.flying ? 3.5 : 2.8;
+            const wingSpread = d.flying ? 4.5 : 3.5;
             const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             
@@ -789,7 +789,7 @@
             ctx.lineWidth = 6;
             ctx.beginPath();
             ctx.moveTo(-d.size * 0.8, yOffset);
-            ctx.quadraticCurveTo(-d.size * 1.8, yOffset - d.size * 0.4, -d.size * 2.8, yOffset);
+            ctx.quadraticCurveTo(-d.size * 1.8, yOffset - d.size * 0.4, -d.size * 3.5, yOffset);
             ctx.stroke();
             
             ctx.restore();
@@ -1300,32 +1300,33 @@
                 
                 // Check collision with towns
                 let townHit = false;
-                for (let town of gameState.towns) {
+                for (let j = gameState.towns.length - 1; j >= 0; j--) {
+                    const town = gameState.towns[j];
                     if (checkCollision(fire, town, 0)) {
                         town.health -= 10;
-                        if (town.health <= 0 && town.health > -5) {
+                        if (town.health <= 0) {
                             // Town destroyed, gain treasure
                             gameState.gold += town.treasure;
                             gameState.territory += 10;
                             playTownSound();
+                            // Remove the destroyed town immediately
+                            gameState.towns.splice(j, 1);
+                        } else {
+                            // Spawn a knight at the attacked town
+                            gameState.knights.push({
+                                x: town.x + (Math.random() - 0.5) * 60,
+                                y: town.y + (Math.random() - 0.5) * 60,
+                                size: 20,
+                                speed: 1.5,
+                                damage: 20,
+                                health: 80,
+                                maxHealth: 80
+                            });
                         }
-                        // Spawn a knight at the attacked town every time
-                        gameState.knights.push({
-                            x: town.x + (Math.random() - 0.5) * 60,
-                            y: town.y + (Math.random() - 0.5) * 60,
-                            size: 20,
-                            speed: 1.5,
-                            damage: 20,
-                            health: 80,
-                            maxHealth: 80
-                        });
                         townHit = true;
                         break;
                     }
                 }
-                
-                // Remove destroyed towns
-                gameState.towns = gameState.towns.filter(t => t.health > 0);
                 
                 if (townHit) {
                     // Remove the fireball after hitting town
