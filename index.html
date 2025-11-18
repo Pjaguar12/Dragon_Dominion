@@ -746,8 +746,8 @@
             
             const yOffset = d.flying ? -5 : 0;
             
-            // Animated Wings (top-down view) - LONGER WINGS
-            const wingSpread = d.flying ? 2.8 : 2.2;
+            // Animated Wings (top-down view) - WIDER WINGS
+            const wingSpread = d.flying ? 3.5 : 2.8;
             const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             
@@ -784,12 +784,12 @@
             ctx.arc(d.size * 0.9, yOffset + d.size * 0.15, 3, 0, Math.PI * 2);
             ctx.fill();
             
-            // Tail (behind body)
+            // Tail (behind body) - LONGER
             ctx.strokeStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.lineWidth = 6;
             ctx.beginPath();
             ctx.moveTo(-d.size * 0.8, yOffset);
-            ctx.quadraticCurveTo(-d.size * 1.5, yOffset - d.size * 0.3, -d.size * 2, yOffset);
+            ctx.quadraticCurveTo(-d.size * 1.8, yOffset - d.size * 0.4, -d.size * 2.8, yOffset);
             ctx.stroke();
             
             ctx.restore();
@@ -1323,6 +1323,9 @@
                         break;
                     }
                 }
+                
+                // Remove destroyed towns
+                gameState.towns = gameState.towns.filter(t => t.health > 0);
                 
                 if (townHit) {
                     // Remove the fireball after hitting town
