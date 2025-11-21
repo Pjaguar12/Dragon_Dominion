@@ -191,7 +191,7 @@
                     <li><strong>B Key:</strong> Breathe fire (destroys obstacles, damages knights)</li>
                     <li><strong>M Key:</strong> Order minions to collect gold</li>
                     <li><strong>H Key:</strong> Buy a minion for 50 gold</li>
-                    <li><strong>Objective:</strong> Collect 50,000 gold and expand territory to 100 acres</li>
+                    <li><strong>Objective:</strong> Collect 50,000 gold and expand territory to 300 acres</li>
                     <li><strong>Attack Towns:</strong> Use fire to raid towns for treasure (spawns knights!)</li>
                     <li><strong>Use Minions:</strong> They collect gold automatically when ordered</li>
                     <li><strong>Health:</strong> Start with 100 HP, lose 20 HP per knight hit</li>
@@ -397,7 +397,7 @@
             territory: 0,
             health: 100,
             minions: 0,
-            dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0 },
+            dragon: { x: 400, y: 300, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0, flightTime: 0, maxFlightTime: 3600, groundedTime: 0, groundedCooldown: 600 },
             lair: { x: 0, y: 0, radius: 80 },
             camera: { x: 0, y: 0 },
             worldWidth: 2400,
@@ -413,6 +413,30 @@
             frame: 0
         };
 
+        // Biome system - returns biome type based on position
+        function getBiome(x, y) {
+            const lairX = gameState.worldWidth / 2;
+            const lairY = gameState.worldHeight / 2;
+            const distFromLair = Math.sqrt(Math.pow(x - lairX, 2) + Math.pow(y - lairY, 2));
+            
+            // Mountains: center region around lair
+            if (distFromLair < 400) {
+                return 'mountains';
+            }
+            
+            // Divide remaining world into 3 regions
+            const angle = Math.atan2(y - lairY, x - lairX);
+            const normalizedAngle = (angle + Math.PI) / (2 * Math.PI); // 0 to 1
+            
+            if (normalizedAngle < 0.33) {
+                return 'forest';
+            } else if (normalizedAngle < 0.66) {
+                return 'grassland';
+            } else {
+                return 'desert';
+            }
+        }
+
         // Initialize game
         function initGame() {
             gameState.gold = 0;
@@ -421,7 +445,7 @@
             gameState.minions = 0;
             // Set lair at center of world
             gameState.lair = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, radius: 80 };
-            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0 };
+            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0, flightTime: 0, maxFlightTime: 3600, groundedTime: 0, groundedCooldown: 600 };
             gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
@@ -432,17 +456,34 @@
             gameState.frame = 0;
 
             // Generate initial obstacles without overlapping (across larger world)
-            for (let i = 0; i < 60; i++) {
+            for (let i = 0; i < 80; i++) {
                 let attempts = 0;
                 let validPosition = false;
                 let newObstacle;
                 
                 while (!validPosition && attempts < 50) {
+                    const px = Math.random() * (gameState.worldWidth - 60) + 30;
+                    const py = Math.random() * (gameState.worldHeight - 60) + 30;
+                    const biome = getBiome(px, py);
+                    
+                    // Determine obstacle type based on biome
+                    let obstacleType;
+                    if (biome === 'desert') {
+                        obstacleType = 'rock'; // No trees in desert
+                    } else if (biome === 'forest') {
+                        obstacleType = Math.random() > 0.2 ? 'tree' : 'rock'; // 80% trees
+                    } else if (biome === 'mountains') {
+                        obstacleType = Math.random() > 0.6 ? 'tree' : 'rock'; // 40% trees, less dense
+                        if (Math.random() > 0.5) continue; // Skip some to make mountains less dense
+                    } else { // grassland
+                        obstacleType = Math.random() > 0.7 ? 'tree' : 'rock'; // 30% trees, more rocks
+                    }
+                    
                     newObstacle = {
-                        x: Math.random() * (gameState.worldWidth - 60) + 30,
-                        y: Math.random() * (gameState.worldHeight - 60) + 30,
+                        x: px,
+                        y: py,
                         size: 25,
-                        type: Math.random() > 0.5 ? 'tree' : 'rock'
+                        type: obstacleType
                     };
                     
                     validPosition = true;
@@ -474,17 +515,29 @@
             }
 
             // Generate towns (across larger world, away from lair)
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 12; i++) {
                 let townX, townY, validTown;
                 let attempts = 0;
                 do {
                     townX = Math.random() * (gameState.worldWidth - 200) + 100;
                     townY = Math.random() * (gameState.worldHeight - 200) + 100;
+                    const biome = getBiome(townX, townY);
                     const distFromLair = Math.sqrt(
                         Math.pow(townX - gameState.lair.x, 2) + 
                         Math.pow(townY - gameState.lair.y, 2)
                     );
-                    validTown = distFromLair > 300;
+                    
+                    // Towns more likely in grassland, less in desert and mountains
+                    let biomeMod = 1.0;
+                    if (biome === 'grassland') {
+                        biomeMod = 0.3; // More likely
+                    } else if (biome === 'desert') {
+                        biomeMod = 0.8; // Less likely
+                    } else if (biome === 'mountains') {
+                        biomeMod = 0.9; // Much less likely
+                    }
+                    
+                    validTown = distFromLair > 300 && Math.random() < biomeMod;
                     attempts++;
                 } while (!validTown && attempts < 50);
                 
@@ -505,11 +558,21 @@
 
         function spawnCoins(count) {
             for (let i = 0; i < count; i++) {
+                const cx = Math.random() * (gameState.worldWidth - 30) + 15;
+                const cy = Math.random() * (gameState.worldHeight - 30) + 15;
+                const biome = getBiome(cx, cy);
+                
+                // Desert coins are worth more
+                let baseValue = Math.floor(Math.random() * 50) + 10;
+                if (biome === 'desert') {
+                    baseValue = Math.floor(baseValue * 1.5);
+                }
+                
                 gameState.coins.push({
-                    x: Math.random() * (gameState.worldWidth - 30) + 15,
-                    y: Math.random() * (gameState.worldHeight - 30) + 15,
+                    x: cx,
+                    y: cy,
                     size: 15,
-                    value: Math.floor(Math.random() * 50) + 10
+                    value: baseValue
                 });
             }
         }
@@ -639,8 +702,8 @@
             document.getElementById('healthDisplay').textContent = gameState.health;
             document.getElementById('minionDisplay').textContent = gameState.minions;
             
-            // Update territory bar (goal is 100 acres)
-            const territoryPercent = Math.min(100, (gameState.territory / 100) * 100);
+            // Update territory bar (goal is 300 acres)
+            const territoryPercent = Math.min(100, (gameState.territory / 300) * 100);
             document.getElementById('territoryBar').style.width = territoryPercent + '%';
             document.getElementById('territoryPercent').textContent = Math.floor(territoryPercent) + '%';
         }
@@ -746,26 +809,27 @@
             
             const yOffset = d.flying ? -5 : 0;
             
-            // Animated Wings (top-down view) - CIRCULAR WINGS
-            const wingSpread = d.flying ? 4.5 : 3.5;
-            const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
-            ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
-            
-            // Wings are smaller and closer to body when not flying (folded)
-            const wingDistance = d.flying ? 1.2 : 0.4; // Distance from body
-            const wingSize = d.flying ? 1.0 : 0.4; // Size of wings
-            
-            // Left wing (circular)
-            ctx.beginPath();
-            ctx.arc(-d.size * 0.5, yOffset - d.size * (wingDistance + wingAnimation), 
-                   d.size * wingSize, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Right wing (circular)
-            ctx.beginPath();
-            ctx.arc(-d.size * 0.5, yOffset + d.size * (wingDistance + wingAnimation), 
-                   d.size * wingSize, 0, Math.PI * 2);
-            ctx.fill();
+            // Animated Wings (top-down view) - CIRCULAR WINGS - Only visible when flying
+            if (d.flying) {
+                const wingSpread = 4.5;
+                const wingAnimation = wingFlap * 0.5;
+                ctx.fillStyle = '#3a6b1f';
+                
+                const wingDistance = 1.2; // Distance from body
+                const wingSize = 1.0; // Size of wings
+                
+                // Left wing (circular)
+                ctx.beginPath();
+                ctx.arc(-d.size * 0.5, yOffset - d.size * (wingDistance + wingAnimation), 
+                       d.size * wingSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Right wing (circular)
+                ctx.beginPath();
+                ctx.arc(-d.size * 0.5, yOffset + d.size * (wingDistance + wingAnimation), 
+                       d.size * wingSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
             
             // Body (elongated oval)
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
@@ -1000,6 +1064,22 @@
 
         function updateDragon() {
             const d = gameState.dragon;
+            
+            // Update flight stamina
+            if (d.flying) {
+                d.flightTime++;
+                if (d.flightTime >= d.maxFlightTime) {
+                    // Force landing
+                    d.flying = false;
+                    d.flightTime = 0;
+                    d.groundedTime = 0;
+                }
+            } else {
+                if (d.groundedTime < d.groundedCooldown) {
+                    d.groundedTime++;
+                }
+            }
+            
             let newX = d.x;
             let newY = d.y;
             let moving = false;
@@ -1078,7 +1158,7 @@
             }
 
             // Check win condition
-            if (gameState.gold >= 50000 && gameState.territory >= 100) {
+            if (gameState.gold >= 50000 && gameState.territory >= 300) {
                 winGame();
             }
             
@@ -1099,8 +1179,14 @@
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance > 0) {
-                    knight.x += (dx / distance) * knight.speed;
-                    knight.y += (dy / distance) * knight.speed;
+                    // Knights move slower in mountains
+                    const biome = getBiome(knight.x, knight.y);
+                    let speedMod = 1.0;
+                    if (biome === 'mountains') {
+                        speedMod = 0.5; // 50% slower in mountains
+                    }
+                    knight.x += (dx / distance) * knight.speed * speedMod;
+                    knight.y += (dy / distance) * knight.speed * speedMod;
                 }
             }
 
@@ -1498,8 +1584,18 @@
                 
                 if (e.key === ' ') {
                     e.preventDefault();
-                    gameState.dragon.flying = !gameState.dragon.flying;
-                    playFlySound();
+                    const d = gameState.dragon;
+                    if (d.flying) {
+                        // Can always land
+                        d.flying = false;
+                        d.flightTime = 0;
+                        d.groundedTime = 0;
+                        playFlySound();
+                    } else if (d.groundedTime >= d.groundedCooldown) {
+                        // Can only take off after cooldown
+                        d.flying = true;
+                        playFlySound();
+                    }
                 }
                 
                 if (e.key === 'm' || e.key === 'M') {
