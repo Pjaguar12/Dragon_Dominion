@@ -746,21 +746,25 @@
             
             const yOffset = d.flying ? -5 : 0;
             
-            // Animated Wings (top-down view) - WIDER WINGS
+            // Animated Wings (top-down view) - CIRCULAR WINGS
             const wingSpread = d.flying ? 4.5 : 3.5;
             const wingAnimation = d.flying ? wingFlap * 0.5 : wingFlap * 0.3;
             ctx.fillStyle = d.flying ? '#3a6b1f' : '#2d5016';
             
-            // Left wing (longer)
+            // Wings are smaller and closer to body when not flying (folded)
+            const wingDistance = d.flying ? 1.2 : 0.4; // Distance from body
+            const wingSize = d.flying ? 1.0 : 0.4; // Size of wings
+            
+            // Left wing (circular)
             ctx.beginPath();
-            ctx.ellipse(-d.size * 0.3, yOffset - d.size * (0.5 + wingAnimation), 
-                       d.size * wingSpread * 0.6, d.size * 0.8, -0.3, 0, Math.PI * 2);
+            ctx.arc(-d.size * 0.5, yOffset - d.size * (wingDistance + wingAnimation), 
+                   d.size * wingSize, 0, Math.PI * 2);
             ctx.fill();
             
-            // Right wing (longer)
+            // Right wing (circular)
             ctx.beginPath();
-            ctx.ellipse(-d.size * 0.3, yOffset + d.size * (0.5 + wingAnimation), 
-                       d.size * wingSpread * 0.6, d.size * 0.8, 0.3, 0, Math.PI * 2);
+            ctx.arc(-d.size * 0.5, yOffset + d.size * (wingDistance + wingAnimation), 
+                   d.size * wingSize, 0, Math.PI * 2);
             ctx.fill();
             
             // Body (elongated oval)
@@ -784,12 +788,14 @@
             ctx.arc(d.size * 0.9, yOffset + d.size * 0.15, 3, 0, Math.PI * 2);
             ctx.fill();
             
-            // Tail (behind body) - LONGER
+            // Tail (behind body) - LONGER with animation
             ctx.strokeStyle = d.flying ? '#3a6b1f' : '#2d5016';
             ctx.lineWidth = 6;
             ctx.beginPath();
+            // Tail sways side to side using the wing angle for smooth animation
+            const tailSway = Math.sin(d.wingAngle * 0.5) * d.size * 0.3;
             ctx.moveTo(-d.size * 0.8, yOffset);
-            ctx.quadraticCurveTo(-d.size * 1.8, yOffset - d.size * 0.4, -d.size * 3.5, yOffset);
+            ctx.quadraticCurveTo(-d.size * 1.8, yOffset - d.size * 0.4 + tailSway, -d.size * 3.5, yOffset + tailSway * 0.5);
             ctx.stroke();
             
             ctx.restore();
