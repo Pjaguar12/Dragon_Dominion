@@ -1505,13 +1505,38 @@
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw gradient background
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, '#87CEEB');
-            gradient.addColorStop(0.5, '#98D8C8');
-            gradient.addColorStop(1, '#2d5016');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Draw biome-based background
+            // Divide the visible area into tiles and color based on biome
+            const tileSize = 100;
+            for (let x = 0; x < canvas.width; x += tileSize) {
+                for (let y = 0; y < canvas.height; y += tileSize) {
+                    const worldX = x + gameState.camera.x;
+                    const worldY = y + gameState.camera.y;
+                    const biome = getBiome(worldX, worldY);
+                    
+                    // Set color based on biome
+                    let biomeColor;
+                    if (biome === 'mountains') {
+                        biomeColor = '#808080'; // Gray
+                    } else if (biome === 'desert') {
+                        biomeColor = '#f4a460'; // Sandy orange
+                    } else if (biome === 'grassland') {
+                        biomeColor = '#9acd32'; // Yellow-green
+                    } else { // forest
+                        biomeColor = '#90ee90'; // Light green (lighter than tree green #228b22)
+                    }
+                    
+                    ctx.fillStyle = biomeColor;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            
+            // Add sky gradient overlay for depth
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height / 3);
+            skyGradient.addColorStop(0, 'rgba(135, 206, 235, 0.4)');
+            skyGradient.addColorStop(1, 'rgba(135, 206, 235, 0)');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height / 3);
 
             // Update game
             updateDragon();
