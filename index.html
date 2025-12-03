@@ -215,6 +215,13 @@
                 </div>
                 <span style="margin-left: 10px;" id="territoryPercent">0%</span>
             </div>
+            <div id="flightEnergyMap" style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; display: inline-block; margin: 10px auto;">
+                <span style="color: #00bfff; font-weight: bold;">Flight Energy:</span>
+                <div class="territory-bar">
+                    <div class="territory-fill" id="flightEnergyBar" style="width: 100%; background: linear-gradient(to right, #00bfff, #1e90ff);"></div>
+                </div>
+                <span style="margin-left: 10px;" id="flightEnergyPercent">100%</span>
+            </div>
             <canvas id="canvas" width="800" height="600"></canvas>
             <div style="margin-top: 10px; font-size: 0.9em; color: #ffd700;">
                 Press SPACEBAR to toggle flight • Press M to order minions • Press H to buy minion (50 gold) • Press B to breathe fire
@@ -445,7 +452,7 @@
             gameState.minions = 0;
             // Set lair at center of world
             gameState.lair = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, radius: 80 };
-            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 4, flying: false, wingAngle: 0, rotation: 0, flightTime: 0, maxFlightTime: 3600, groundedTime: 0, groundedCooldown: 600 };
+            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 6, flying: false, wingAngle: 0, rotation: 0, flightTime: 3600, maxFlightTime: 3600, groundedTime: 3600, groundedCooldown: 600 };
             gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
@@ -706,6 +713,31 @@
             const territoryPercent = Math.min(100, (gameState.territory / 300) * 100);
             document.getElementById('territoryBar').style.width = territoryPercent + '%';
             document.getElementById('territoryPercent').textContent = Math.floor(territoryPercent) + '%';
+            
+            // Update flight energy bar
+            const d = gameState.dragon;
+            let energyPercent;
+            if (d.flying) {
+                // Show remaining flight time
+                energyPercent = ((d.maxFlightTime - d.flightTime) / d.maxFlightTime) * 100;
+            } else {
+                // Show cooldown recovery
+                if (d.groundedTime < d.groundedCooldown) {
+                    energyPercent = (d.groundedTime / d.groundedCooldown) * 100;
+                } else {
+                    energyPercent = 100;
+                }
+            }
+            document.getElementById('flightEnergyBar').style.width = energyPercent + '%';
+            document.getElementById('flightEnergyPercent').textContent = Math.floor(energyPercent) + '%';
+            
+            // Change color based on status
+            const energyBar = document.getElementById('flightEnergyBar');
+            if (d.flying) {
+                energyBar.style.background = energyPercent > 30 ? 'linear-gradient(to right, #00bfff, #1e90ff)' : 'linear-gradient(to right, #ff6b6b, #ff4757)';
+            } else {
+                energyBar.style.background = energyPercent < 100 ? 'linear-gradient(to right, #ffa500, #ff8c00)' : 'linear-gradient(to right, #00bfff, #1e90ff)';
+            }
         }
 
         function updateCamera() {
@@ -1613,7 +1645,6 @@
                     if (d.flying) {
                         // Can always land
                         d.flying = false;
-                        d.flightTime = 0;
                         d.groundedTime = 0;
                         playFlySound();
                     } else if (d.groundedTime >= d.groundedCooldown) {
