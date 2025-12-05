@@ -452,7 +452,7 @@
             gameState.minions = 0;
             // Set lair at center of world
             gameState.lair = { x: gameState.worldWidth / 2, y: gameState.worldHeight / 2, radius: 80 };
-            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 6, flying: false, wingAngle: 0, rotation: 0, flightTime: 3600, maxFlightTime: 3600, groundedTime: 3600, groundedCooldown: 600 };
+            gameState.dragon = { x: gameState.lair.x, y: gameState.lair.y, size: 30, speed: 6, flying: false, wingAngle: 0, rotation: 0, flightTime: 0, maxFlightTime: 3600, groundedTime: 3600, groundedCooldown: 600 };
             gameState.camera = { x: 0, y: 0 };
             gameState.coins = [];
             gameState.knights = [];
@@ -717,26 +717,30 @@
             // Update flight energy bar
             const d = gameState.dragon;
             let energyPercent;
-            if (d.flying) {
-                // Show remaining flight time
+            let canFly = d.groundedTime >= d.groundedCooldown;
+            
+            if (canFly) {
+                // Show remaining flight energy when ready to fly
                 energyPercent = ((d.maxFlightTime - d.flightTime) / d.maxFlightTime) * 100;
             } else {
-                // Show cooldown recovery
-                if (d.groundedTime < d.groundedCooldown) {
-                    energyPercent = (d.groundedTime / d.groundedCooldown) * 100;
-                } else {
-                    energyPercent = 100;
-                }
+                // Show cooldown recovery when grounded
+                energyPercent = (d.groundedTime / d.groundedCooldown) * 100;
             }
+            
             document.getElementById('flightEnergyBar').style.width = energyPercent + '%';
             document.getElementById('flightEnergyPercent').textContent = Math.floor(energyPercent) + '%';
             
             // Change color based on status
             const energyBar = document.getElementById('flightEnergyBar');
             if (d.flying) {
+                // Blue when flying, turns red when low
                 energyBar.style.background = energyPercent > 30 ? 'linear-gradient(to right, #00bfff, #1e90ff)' : 'linear-gradient(to right, #ff6b6b, #ff4757)';
+            } else if (canFly) {
+                // Blue when ready to fly
+                energyBar.style.background = 'linear-gradient(to right, #00bfff, #1e90ff)';
             } else {
-                energyBar.style.background = energyPercent < 100 ? 'linear-gradient(to right, #ffa500, #ff8c00)' : 'linear-gradient(to right, #00bfff, #1e90ff)';
+                // Orange when recovering from cooldown
+                energyBar.style.background = 'linear-gradient(to right, #ffa500, #ff8c00)';
             }
         }
 
@@ -1107,6 +1111,11 @@
                     d.groundedTime = 0;
                 }
             } else {
+                // Regenerate flight energy when not flying
+                if (d.flightTime > 0) {
+                    d.flightTime = Math.max(0, d.flightTime - 1);
+                }
+                // Track grounded time for forced cooldown
                 if (d.groundedTime < d.groundedCooldown) {
                     d.groundedTime++;
                 }
@@ -1643,9 +1652,8 @@
                     e.preventDefault();
                     const d = gameState.dragon;
                     if (d.flying) {
-                        // Can always land
+                        // Can always land - don't reset groundedTime (preserve recovery state)
                         d.flying = false;
-                        d.groundedTime = 0;
                         playFlySound();
                     } else if (d.groundedTime >= d.groundedCooldown) {
                         // Can only take off after cooldown
